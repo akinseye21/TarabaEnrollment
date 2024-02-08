@@ -1,0 +1,3 @@
+include ':app', ':printer'
+rootProject.name = "SingleFPDemo"
+include ':printer'

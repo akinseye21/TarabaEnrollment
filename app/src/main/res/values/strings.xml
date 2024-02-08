@@ -1,0 +1,16 @@
+<resources>
+    <string name="app_name">TESIS</string>
+
+    <!--    单指指纹测试界面  -->
+    <string name="capture">Step1：capture</string>
+    <string name="verify">Step2：verify</string>
+    <string name="quality">quality>=100</string>
+    <string name="result">result:</string>
+    <string name="verify_success">Verify Success!</string>
+    <string name="verify_faild">Verify Failed</string>
+    <string name="capture_finish">Capture finish(quality>=40)</string>
+    <string name="capture_faild">Capture failed!</string>
+    <string name="not_match">Not Match!</string>
+    <string name="tip">TIP:</string>
+    <string name="finger_quality">quality score:</string>
+</resources>

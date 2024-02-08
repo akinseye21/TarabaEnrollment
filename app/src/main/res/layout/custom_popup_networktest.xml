@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="horizontal"
+    android:layout_width="350dp"
+    android:layout_height="wrap_content"
+    android:background="@drawable/loading"
+    android:padding="10dp"
+    android:gravity="center"
+    android:layout_gravity="center">
+
+    <ImageView
+        android:layout_width="80dp"
+        android:layout_height="60dp"
+        android:id="@+id/img"
+        android:src="@drawable/network_check"
+        android:indeterminateTint="#000"
+        android:layout_gravity="center"/>
+
+    <TextView
+        android:id="@+id/text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:layout_marginTop="10dp"
+        android:layout_marginBottom="10dp"
+        android:fontFamily="@font/montserratmedium"
+        android:gravity="center"
+        android:text="Your network connection is good!"
+        android:textColor="#000000"
+        android:textSize="15dp" />
+
+</LinearLayout>
