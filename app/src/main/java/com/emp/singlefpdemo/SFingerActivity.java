@@ -295,7 +295,7 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
     EditText edt_psnNum;
     TextInputLayout til_psnNum;
     ImageView img_psnNum;
-    Boolean staff_psnNum;
+    Boolean staff_psnNum=false;
     String str_staff_psnNum;
     Spinner spinner_postgraduate, spinner_tertiary, spinner_secondary;
     String edu_quality;
@@ -672,6 +672,13 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
                     checkStaffLocationInputValidity();
                 }
                 else if (staffContainer2.getVisibility()==View.VISIBLE){
+                    if (edt_staff_email.equals("")){
+                        str_staff_email = "";
+                    }
+                    if (edt_staff_nin.equals("")){
+                        str_staff_nin = "";
+                    }
+
                     if (staff_surname && staff_firstname && staff_dob && staff_gender && staff_phone){
                         staffContainer2.setVisibility(View.GONE);
                         staff_bar3.setBackgroundResource(R.drawable.quote1);
@@ -737,18 +744,28 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
 
                 }
                 else if (staffContainer8.getVisibility()==View.VISIBLE){
-                    staffContainer8.setVisibility(View.GONE);
-                    staff_bar9.setBackgroundResource(R.drawable.quote1);
-                    staffContainer9.setVisibility(View.VISIBLE);
+                    if (img_employmentLetter.getDrawable() == null && img_promotionLetter.getDrawable() == null && img_idCard.getDrawable() == null){
+                        Toast.makeText(SFingerActivity.this, "Ensure you snapp necessary documents before proceeding", Toast.LENGTH_SHORT).show();
+                    }else{
+                        staffContainer8.setVisibility(View.GONE);
+                        staff_bar9.setBackgroundResource(R.drawable.quote1);
+                        staffContainer9.setVisibility(View.VISIBLE);
 
-                    staffPortrait();
+                        staffPortrait();
+                    }
+
                 }
                 else if (staffContainer9.getVisibility()==View.VISIBLE){
-                    staffContainer9.setVisibility(View.GONE);
-                    staff_bar10.setBackgroundResource(R.drawable.quote1);
-                    staffContainer10.setVisibility(View.VISIBLE);
+                    if (surfaceView_staff.getDrawable() == null){
+                        Toast.makeText(SFingerActivity.this, "Please snap staff picture", Toast.LENGTH_SHORT).show();
+                    }else{
+                        staffContainer9.setVisibility(View.GONE);
+                        staff_bar10.setBackgroundResource(R.drawable.quote1);
+                        staffContainer10.setVisibility(View.VISIBLE);
 
-                    staffFingerprint();
+                        staffFingerprint();
+                    }
+
                 }
                 else if (staffContainer10.getVisibility()==View.VISIBLE){
                     next2.setVisibility(View.GONE);
@@ -772,6 +789,7 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
             public void onClick(View view) {
                 getDashboardData();
                 tab1.setVisibility(View.GONE);
+                tab2.setVisibility(View.GONE);
                 tab5.setVisibility(View.GONE);
                 middle.setVisibility(View.VISIBLE);
 //                rightSide.setVisibility(View.VISIBLE);
@@ -913,96 +931,309 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
         });
     }
 
+
+    @Override
+    protected void initDatas() {
+        compositeDisposable = new CompositeDisposable();
+    }
+
+    @Override
+    public int getContentViewId() {
+        return R.layout.activity_s_finger;
+    }
+
+    public void openDevice(boolean isChecked) {
+        if (isChecked) {
+            startLoadding("Opening Device...");
+            mApi.openFingerDevice(this);
+        } else {
+            mApi.release();
+            captureBtn.setEnabled(false);
+            verifyBtn.setEnabled(false);
+            stopLoadding();
+        }
+    }
+
+    public void startLoadding(String content) {
+        if (mDialog == null) {
+            mDialog = new ProgressDialog(this);
+            mDialog.setCancelable(false);
+        }
+        mDialog.setMessage(content);
+        if (!mDialog.isShowing()) {
+            mDialog.show();
+        }
+    }
+
+    public void stopLoadding() {
+        if (mDialog != null && !isFinishing()) {
+            mDialog.dismiss();
+        }
+    }
+
+    @Override
+    public void connect(int result) {
+        captureBtn.setEnabled(true);
+        Log.e(TAG, "FingerInit状态" + result);
+        stopLoadding();
+    }
+
+    @Override
+    public void disconnect() {
+        stopLoadding();
+        Log.e(TAG, "disconnect");
+        showToast("disconnect");
+    }
+
+    private void showToast(String msg) {
+        Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
+    }
+
+    @Override
+    public void captureSuccess(int NFIQ, byte[] img_Buffer, int[] size, byte[] templateBuffer) {
+        Bitmap bitmap = BitmapFactory.decodeByteArray(
+                img_Buffer, 0, 256 * 360 + 1024 + 54);
+        prev.setImageBitmap(bitmap);
+        prev_staff.setImageBitmap(bitmap);
+        finalFingerprint.setImageBitmap(bitmap);
+        tip.setText(getString(R.string.capture_finish));
+        tip_staff.setText(getString(R.string.capture_finish));
+        Log.e(TAG, "NFIQ:" + NFIQ);
+        quality.setText(String.valueOf((5 - NFIQ) * 20));
+        quality_staff.setText(String.valueOf((5 - NFIQ) * 20));
+        if (verifyMode) {
+            startVerify(img_Buffer);
+        } else {
+            captureIv.setImageBitmap(bitmap);
+            captureIv_staff.setImageBitmap(bitmap);
+            register(img_Buffer);
+        }
+
+        //converting bitmap to bytearray
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, baos);
+        b_finger = baos.toByteArray();
+    }
+
+    @Override
+    public void captureFail(int result, String failMsg) {
+        tip.setText(failMsg);
+        tip_staff.setText(failMsg);
+        captureBtn.setEnabled(true);
+    }
+
+    @Override
+    public void captureOnPress(int NFIQ, byte[] img_Buffer, int[] size) {
+        Bitmap bitmap = BitmapFactory.decodeByteArray(
+                img_Buffer, 0, 256 * 360 + 1024 + 54);
+        prev.setImageBitmap(bitmap);
+        prev_staff.setImageBitmap(bitmap);
+        Log.e(TAG, "NFIQ:" + NFIQ);
+        quality.setText(String.valueOf((5 - NFIQ) * 20));
+        quality_staff.setText(String.valueOf((5 - NFIQ) * 20));
+    }
+
+    @OnClick({R.id.capture_btn, R.id.verify_btn, R.id.capture_btn_staff})
+    public void onClick(View v) {
+        switch (v.getId()) {
+            case R.id.capture_btn:
+                Log.e(TAG, "capture_btn");
+                tip.setText("capture...");
+                verifyMode = false;
+                verify_tv.setText("");
+                prev.setImageBitmap(null);
+                captureIv.setImageBitmap(null);
+                captureBtn.setEnabled(false);
+                verifyBtn.setEnabled(false);
+//                mDevice.startCapture(this);
+                mApi.startCapture(40, this);
+                break;
+            case R.id.verify_btn:
+                verify_tv.setText("");
+                captureBtn.setEnabled(false);
+                verifyBtn.setEnabled(false);
+                verifyMode = true;
+                tip.setText("verify...");
+                mApi.startCapture(40, this);
+                break;
+            case R.id.capture_btn_staff:
+                verifyMode = false;
+                verify_tv.setText("");
+                prev_staff.setImageBitmap(null);
+                captureIv_staff.setImageBitmap(null);
+//                captureBtn.setEnabled(false);
+//                verifyBtn.setEnabled(false);
+//                mDevice.startCapture(this);
+                mApi.startCapture(40, this);
+                break;
+
+        }
+    }
+
+    private void register(byte[] bmpdata) {
+        bmpToXyt(srcfile, bmpdata);
+    }
+
+    private void startVerify(byte[] bmpdata) {
+        bmpToXyt(dstfile, bmpdata);
+    }
+
+    private void bmpToXyt(String filepath, byte[] bmpData) {
+        Disposable disposable = Observable.create((ObservableOnSubscribe<Message>) emitter -> {
+                    if (bmpData != null) {
+                        File file = new File(AppConfig.DATA_PATH);
+                        if (!file.exists()) {
+                            file.mkdirs();
+                        }
+                        FileUtils.writeByteArrayToFile(new File(filepath), bmpData);
+                        String pgmname = filepath.replace(".bmp", ".pgm");
+                        String xytname = filepath.replace(".bmp", ".xyt");
+                        CallDecoder.Bmp2PgmNoTripDistort(filepath, pgmname);
+                        CallFprint.pgmChangeToXyt(pgmname, xytname);
+                        Message msg = Message.obtain();
+                        msg.what = 0;
+                        if (verifyMode) {
+                            msg.what = 1;
+                            long start = System.currentTimeMillis();
+                            int nRet = CallFprint.fprintCompare(dstfile.replace(".bmp", ".xyt"), srcfile.replace(".bmp", ".xyt"));
+                            Log.i(TAG, "fprintCompare nRet= " + nRet);
+                            msg.arg1 = nRet;
+                            long stop = System.currentTimeMillis();
+                            Log.i(TAG, "use time:" + (stop - start) + "ms");
+                        }
+                        emitter.onNext(msg);
+                        emitter.onComplete();
+                    }
+                }).subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(msg -> {
+                    if (msg.what == 1) {
+                        Log.e(TAG, "比对完成");
+                        captureBtn.setEnabled(true);
+                        verifyBtn.setEnabled(true);
+                        int score = msg.arg1;
+                        tip.setText("score:" + score);
+                        if (score > threadHold) {
+                            verify_tv.setText(getResources().getString(R.string.verify_success));
+                            verify_tv.setTextColor(getResources().getColor(R.color.green));
+                        } else {
+                            verify_tv.setText(getResources().getString(R.string.verify_faild));
+                            verify_tv.setTextColor(getResources().getColor(R.color.red));
+                        }
+                    } else {
+                        Log.e(TAG, "register complete!");
+                        verifyBtn.setEnabled(true);
+                        tip.setText("register complete!");
+                    }
+                });
+        compositeDisposable.add(disposable);
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        //指纹下电
+        IoControl.getInstance().setIoStatus(IoControl.USBFP_PATH, IoControl.IOSTATUS.DISABLE);
+        openDevice(false);
+    }
+
+
+
+
+
+
+
+//    STUDENT ENROLLMENT
     private void getAllRecords() {
         back_txt = findViewById(R.id.back_txt);
         back_txt.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                default_sync.setVisibility(View.VISIBLE);
-                allrecords.setVisibility(View.GONE);
-            }
-        });
+        @Override
+        public void onClick(View view) {
+            default_sync.setVisibility(View.VISIBLE);
+            allrecords.setVisibility(View.GONE);
+        }
+    });
         myList = findViewById(R.id.listview);
 
         //create DB instance
         myDB = new MyDatabaseHelper(SFingerActivity.this);
         if (myDB.getRecordCount()==0){
-            Toast.makeText(SFingerActivity.this, "No records to sync", Toast.LENGTH_SHORT).show();
-            default_sync.setVisibility(View.VISIBLE);
-            allrecords.setVisibility(View.GONE);
-        }else {
-            //to read all records in DB
-            Cursor cursor = myDB.readAllData();
-            if (cursor != null && cursor.moveToFirst()) {
+        Toast.makeText(SFingerActivity.this, "No records to sync", Toast.LENGTH_SHORT).show();
+        default_sync.setVisibility(View.VISIBLE);
+        allrecords.setVisibility(View.GONE);
+    }else {
+        //to read all records in DB
+        Cursor cursor = myDB.readAllData();
+        if (cursor != null && cursor.moveToFirst()) {
 
-                arr_id.clear();
-                arr_firstname.clear();
-                arr_surname.clear();
-                arr_othername.clear();
-                arr_dob.clear();
-                arr_guardianname.clear();
-                arr_guardianphone.clear();
-                arr_guardianaddress.clear();
-                arr_guardianrelationship.clear();
-                arr_question1.clear();
-                arr_question2.clear();
-                arr_question3.clear();
-                arr_question4.clear();
-                arr_question5.clear();
-                arr_religion.clear();
-                arr_address.clear();
-                arr_picture.clear();
-                arr_fingerprint.clear();
-                arr_signature.clear();
-                arr_gender.clear();
-                arr_class.clear();
-                arr_shoe_size.clear();
-                arr_height.clear();
-                arr_weight.clear();
-                arr_origin.clear();
-                arr_schoolname.clear();
-                arr_lga.clear();
-                arr_createdby.clear();
-                arr_tesis_number.clear();
+            arr_id.clear();
+            arr_firstname.clear();
+            arr_surname.clear();
+            arr_othername.clear();
+            arr_dob.clear();
+            arr_guardianname.clear();
+            arr_guardianphone.clear();
+            arr_guardianaddress.clear();
+            arr_guardianrelationship.clear();
+            arr_question1.clear();
+            arr_question2.clear();
+            arr_question3.clear();
+            arr_question4.clear();
+            arr_question5.clear();
+            arr_religion.clear();
+            arr_address.clear();
+            arr_picture.clear();
+            arr_fingerprint.clear();
+            arr_signature.clear();
+            arr_gender.clear();
+            arr_class.clear();
+            arr_shoe_size.clear();
+            arr_height.clear();
+            arr_weight.clear();
+            arr_origin.clear();
+            arr_schoolname.clear();
+            arr_lga.clear();
+            arr_createdby.clear();
+            arr_tesis_number.clear();
 
-                do {
-                    arr_id.add(cursor.getInt(0));
-                    arr_firstname.add(cursor.getString(1));
-                    arr_surname.add(cursor.getString(2));
-                    arr_othername.add(cursor.getString(3));
-                    arr_dob.add(cursor.getString(4));
-                    arr_guardianname.add(cursor.getString(5));
-                    arr_guardianphone.add(cursor.getString(6));
-                    arr_guardianaddress.add(cursor.getString(7));
-                    arr_guardianrelationship.add(cursor.getString(8));
-                    arr_question1.add(cursor.getString(9));
-                    arr_question2.add(cursor.getString(10));
-                    arr_question3.add(cursor.getString(11));
-                    arr_question4.add(cursor.getString(12));
-                    arr_question5.add(cursor.getString(13));
-                    arr_religion.add(cursor.getString(14));
-                    arr_address.add(cursor.getString(15));
-                    arr_picture.add(cursor.getBlob(16));
-                    arr_fingerprint.add(cursor.getBlob(17));
-                    arr_signature.add(cursor.getBlob(18));
-                    arr_gender.add(cursor.getString(19));
-                    arr_class.add(cursor.getString(20));
-                    arr_shoe_size.add(cursor.getString(21));
-                    arr_height.add(cursor.getString(22));
-                    arr_weight.add(cursor.getString(23));
-                    arr_origin.add(cursor.getString(24));
-                    arr_schoolname.add(cursor.getString(25));
-                    arr_lga.add(cursor.getString(26));
-                    arr_createdby.add(cursor.getString(27));
-                    arr_tesis_number.add(cursor.getString(28));
-                } while (cursor.moveToNext());
-            }
+            do {
+                arr_id.add(cursor.getInt(0));
+                arr_firstname.add(cursor.getString(1));
+                arr_surname.add(cursor.getString(2));
+                arr_othername.add(cursor.getString(3));
+                arr_dob.add(cursor.getString(4));
+                arr_guardianname.add(cursor.getString(5));
+                arr_guardianphone.add(cursor.getString(6));
+                arr_guardianaddress.add(cursor.getString(7));
+                arr_guardianrelationship.add(cursor.getString(8));
+                arr_question1.add(cursor.getString(9));
+                arr_question2.add(cursor.getString(10));
+                arr_question3.add(cursor.getString(11));
+                arr_question4.add(cursor.getString(12));
+                arr_question5.add(cursor.getString(13));
+                arr_religion.add(cursor.getString(14));
+                arr_address.add(cursor.getString(15));
+                arr_picture.add(cursor.getBlob(16));
+                arr_fingerprint.add(cursor.getBlob(17));
+                arr_signature.add(cursor.getBlob(18));
+                arr_gender.add(cursor.getString(19));
+                arr_class.add(cursor.getString(20));
+                arr_shoe_size.add(cursor.getString(21));
+                arr_height.add(cursor.getString(22));
+                arr_weight.add(cursor.getString(23));
+                arr_origin.add(cursor.getString(24));
+                arr_schoolname.add(cursor.getString(25));
+                arr_lga.add(cursor.getString(26));
+                arr_createdby.add(cursor.getString(27));
+                arr_tesis_number.add(cursor.getString(28));
+            } while (cursor.moveToNext());
         }
+    }
 
-        StudentAdapter studentAdapter = new StudentAdapter(getApplicationContext(), arr_id, arr_firstname, arr_surname, arr_othername,
-                arr_dob, arr_guardianname, arr_guardianphone, arr_guardianaddress, arr_guardianrelationship, arr_question1, arr_question2,
-                arr_question3, arr_question4, arr_question5, arr_religion, arr_address, arr_picture, arr_fingerprint, arr_signature,
-                arr_gender, arr_class, arr_shoe_size, arr_height, arr_weight, arr_origin, arr_schoolname, arr_lga, arr_createdby, arr_tesis_number, count_local, count_sync);
+        StudentAdapter studentAdapter = new StudentAdapter(SFingerActivity.this, arr_id, arr_firstname, arr_surname, arr_othername,
+            arr_dob, arr_guardianname, arr_guardianphone, arr_guardianaddress, arr_guardianrelationship, arr_question1, arr_question2,
+            arr_question3, arr_question4, arr_question5, arr_religion, arr_address, arr_picture, arr_fingerprint, arr_signature,
+            arr_gender, arr_class, arr_shoe_size, arr_height, arr_weight, arr_origin, arr_schoolname, arr_lga, arr_createdby, arr_tesis_number, count_local, count_sync);
         myList.setAdapter((ListAdapter) studentAdapter);
 
     }
@@ -1096,7 +1327,7 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
             }
         }
 
-        StaffAdapter staffAdapter = new StaffAdapter(getApplicationContext(), arr_staff_id, arr_staff_firstname, arr_staff_surname,
+        StaffAdapter staffAdapter = new StaffAdapter(SFingerActivity.this, arr_staff_id, arr_staff_firstname, arr_staff_surname,
                 arr_staff_othername, arr_staff_dob, arr_staff_email, arr_staff_phone, arr_staff_nin, arr_staff_qualification,
                 arr_staff_question1, arr_staff_question2, arr_staff_question3, arr_staff_question4, arr_staff_religion, arr_staff_address,
                 arr_staff_gender, arr_staff_nok, arr_staff_referee, arr_staff_subject, arr_staff_experience, arr_staff_school, arr_staff_schoollga,
@@ -1197,8 +1428,6 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
         myDialog.show();
     }
 
-
-//    Imported from previous code
 
     private void readLGAForTab1(){
         try{
@@ -1306,7 +1535,6 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
             System.out.println("error "+ e.toString());
         }
     }
-
     private void readPrimarySchoolFromExcel() {
         try{
             InputStream myInput;
@@ -2274,218 +2502,6 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
 
     }
 
-//    Import ends here
-
-
-
-
-
-    @Override
-    protected void initDatas() {
-        compositeDisposable = new CompositeDisposable();
-    }
-
-    @Override
-    public int getContentViewId() {
-        return R.layout.activity_s_finger;
-    }
-
-    public void openDevice(boolean isChecked) {
-        if (isChecked) {
-            startLoadding("Opening Device...");
-            mApi.openFingerDevice(this);
-        } else {
-            mApi.release();
-            captureBtn.setEnabled(false);
-            verifyBtn.setEnabled(false);
-            stopLoadding();
-        }
-    }
-
-    public void startLoadding(String content) {
-        if (mDialog == null) {
-            mDialog = new ProgressDialog(this);
-            mDialog.setCancelable(false);
-        }
-        mDialog.setMessage(content);
-        if (!mDialog.isShowing()) {
-            mDialog.show();
-        }
-    }
-
-    public void stopLoadding() {
-        if (mDialog != null && !isFinishing()) {
-            mDialog.dismiss();
-        }
-    }
-
-    @Override
-    public void connect(int result) {
-        captureBtn.setEnabled(true);
-        Log.e(TAG, "FingerInit状态" + result);
-        stopLoadding();
-    }
-
-    @Override
-    public void disconnect() {
-        stopLoadding();
-        Log.e(TAG, "disconnect");
-        showToast("disconnect");
-    }
-
-    private void showToast(String msg) {
-        Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
-    }
-
-    @Override
-    public void captureSuccess(int NFIQ, byte[] img_Buffer, int[] size, byte[] templateBuffer) {
-        Bitmap bitmap = BitmapFactory.decodeByteArray(
-                img_Buffer, 0, 256 * 360 + 1024 + 54);
-        prev.setImageBitmap(bitmap);
-        prev_staff.setImageBitmap(bitmap);
-        finalFingerprint.setImageBitmap(bitmap);
-        tip.setText(getString(R.string.capture_finish));
-        tip_staff.setText(getString(R.string.capture_finish));
-        Log.e(TAG, "NFIQ:" + NFIQ);
-        quality.setText(String.valueOf((5 - NFIQ) * 20));
-        quality_staff.setText(String.valueOf((5 - NFIQ) * 20));
-        if (verifyMode) {
-            startVerify(img_Buffer);
-        } else {
-            captureIv.setImageBitmap(bitmap);
-            captureIv_staff.setImageBitmap(bitmap);
-            register(img_Buffer);
-        }
-
-        //converting bitmap to bytearray
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, baos);
-        b_finger = baos.toByteArray();
-    }
-
-    @Override
-    public void captureFail(int result, String failMsg) {
-        tip.setText(failMsg);
-        tip_staff.setText(failMsg);
-        captureBtn.setEnabled(true);
-    }
-
-    @Override
-    public void captureOnPress(int NFIQ, byte[] img_Buffer, int[] size) {
-        Bitmap bitmap = BitmapFactory.decodeByteArray(
-                img_Buffer, 0, 256 * 360 + 1024 + 54);
-        prev.setImageBitmap(bitmap);
-        prev_staff.setImageBitmap(bitmap);
-        Log.e(TAG, "NFIQ:" + NFIQ);
-        quality.setText(String.valueOf((5 - NFIQ) * 20));
-        quality_staff.setText(String.valueOf((5 - NFIQ) * 20));
-    }
-
-    @OnClick({R.id.capture_btn, R.id.verify_btn, R.id.capture_btn_staff})
-    public void onClick(View v) {
-        switch (v.getId()) {
-            case R.id.capture_btn:
-                Log.e(TAG, "capture_btn");
-                tip.setText("capture...");
-                verifyMode = false;
-                verify_tv.setText("");
-                prev.setImageBitmap(null);
-                captureIv.setImageBitmap(null);
-                captureBtn.setEnabled(false);
-                verifyBtn.setEnabled(false);
-//                mDevice.startCapture(this);
-                mApi.startCapture(40, this);
-                break;
-            case R.id.verify_btn:
-                verify_tv.setText("");
-                captureBtn.setEnabled(false);
-                verifyBtn.setEnabled(false);
-                verifyMode = true;
-                tip.setText("verify...");
-                mApi.startCapture(40, this);
-                break;
-            case R.id.capture_btn_staff:
-                verifyMode = false;
-                verify_tv.setText("");
-                prev_staff.setImageBitmap(null);
-                captureIv_staff.setImageBitmap(null);
-//                captureBtn.setEnabled(false);
-//                verifyBtn.setEnabled(false);
-//                mDevice.startCapture(this);
-                mApi.startCapture(40, this);
-                break;
-
-        }
-    }
-
-    private void register(byte[] bmpdata) {
-        bmpToXyt(srcfile, bmpdata);
-    }
-
-    private void startVerify(byte[] bmpdata) {
-        bmpToXyt(dstfile, bmpdata);
-    }
-
-    private void bmpToXyt(String filepath, byte[] bmpData) {
-        Disposable disposable = Observable.create((ObservableOnSubscribe<Message>) emitter -> {
-                    if (bmpData != null) {
-                        File file = new File(AppConfig.DATA_PATH);
-                        if (!file.exists()) {
-                            file.mkdirs();
-                        }
-                        FileUtils.writeByteArrayToFile(new File(filepath), bmpData);
-                        String pgmname = filepath.replace(".bmp", ".pgm");
-                        String xytname = filepath.replace(".bmp", ".xyt");
-                        CallDecoder.Bmp2PgmNoTripDistort(filepath, pgmname);
-                        CallFprint.pgmChangeToXyt(pgmname, xytname);
-                        Message msg = Message.obtain();
-                        msg.what = 0;
-                        if (verifyMode) {
-                            msg.what = 1;
-                            long start = System.currentTimeMillis();
-                            int nRet = CallFprint.fprintCompare(dstfile.replace(".bmp", ".xyt"), srcfile.replace(".bmp", ".xyt"));
-                            Log.i(TAG, "fprintCompare nRet= " + nRet);
-                            msg.arg1 = nRet;
-                            long stop = System.currentTimeMillis();
-                            Log.i(TAG, "use time:" + (stop - start) + "ms");
-                        }
-                        emitter.onNext(msg);
-                        emitter.onComplete();
-                    }
-                }).subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(msg -> {
-                    if (msg.what == 1) {
-                        Log.e(TAG, "比对完成");
-                        captureBtn.setEnabled(true);
-                        verifyBtn.setEnabled(true);
-                        int score = msg.arg1;
-                        tip.setText("score:" + score);
-                        if (score > threadHold) {
-                            verify_tv.setText(getResources().getString(R.string.verify_success));
-                            verify_tv.setTextColor(getResources().getColor(R.color.green));
-                        } else {
-                            verify_tv.setText(getResources().getString(R.string.verify_faild));
-                            verify_tv.setTextColor(getResources().getColor(R.color.red));
-                        }
-                    } else {
-                        Log.e(TAG, "register complete!");
-                        verifyBtn.setEnabled(true);
-                        tip.setText("register complete!");
-                    }
-                });
-        compositeDisposable.add(disposable);
-    }
-
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        //指纹下电
-        IoControl.getInstance().setIoStatus(IoControl.USBFP_PATH, IoControl.IOSTATUS.DISABLE);
-        openDevice(false);
-    }
-
-
     private void networkCheck() {
         //connectivity manager
         ConnectivityManager cm = (ConnectivityManager) SFingerActivity.this.getSystemService(Context.CONNECTIVITY_SERVICE);
@@ -2925,7 +2941,7 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
         });
 
         ArrayAdapter<String> tertiaryAdapter;
-        String tert[] = {"Select Tertiary Qualification", "BSc", "BTech", "BA", "BEdu.", "BPhil", "BMed"};
+        String tert[] = {"Select Tertiary Qualification", "BSc", "BSc(Hons)", "B.Agric", "BBA", "BArch", "B.Tech", "BA", "BEd", "B.NSC", "B.V.Sc", "BEng", "BPhil", "BPharm", "BMLS", "BFA", "BFA", "BMed", "LLB", "MBBS"};
         tertiaryAdapter = new ArrayAdapter<>(this, R.layout.simple_spinner_item, R.id.tx, tert);
         spinner_tertiary.setAdapter(tertiaryAdapter);
         spinner_tertiary.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {

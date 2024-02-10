@@ -1,15 +1,24 @@
 package com.emp.singlefpdemo.adapters;
 
+import android.app.Dialog;
 import android.content.Context;
+import android.content.res.ColorStateList;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.ProgressBar;
+import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import androidx.core.content.ContextCompat;
 
 import com.android.volley.AuthFailureError;
 import com.android.volley.DefaultRetryPolicy;
@@ -36,9 +45,10 @@ import de.hdodenhof.circleimageview.CircleImageView;
 
 public class StaffAdapter extends BaseAdapter {
 
+    MyDatabaseHelperStaff myDB;
     private RequestQueue rQueue;
 
-    private Context context;
+    public Context context;
     private ArrayList<Integer> arr_id;
     private ArrayList<String> arr_firstname;
     private ArrayList<String> arr_surname;
@@ -140,8 +150,10 @@ public class StaffAdapter extends BaseAdapter {
             convertView = inflaInflater.inflate(R.layout.list_saved_staff, parent, false);
         }
 
-        MyDatabaseHelperStaff myDB = new MyDatabaseHelperStaff(context);
+        myDB = new MyDatabaseHelperStaff(context);
 
+        RelativeLayout container = convertView.findViewById(R.id.container);
+        LinearLayout buttons = convertView.findViewById(R.id.buttons);
         CircleImageView userimg = convertView.findViewById(R.id.userimg);
         TextView name = convertView.findViewById(R.id.name);
         TextView dob = convertView.findViewById(R.id.dob);
@@ -151,6 +163,7 @@ public class StaffAdapter extends BaseAdapter {
         TextView gender = convertView.findViewById(R.id.gender);
         TextView schoolname = convertView.findViewById(R.id.schoolname);
         Button sync = convertView.findViewById(R.id.sync);
+        Button delete = convertView.findViewById(R.id.delete);
         ProgressBar progressBar = convertView.findViewById(R.id.progressBar);
         ImageView check = convertView.findViewById(R.id.check);
 
@@ -177,6 +190,37 @@ public class StaffAdapter extends BaseAdapter {
                     endpoint = "https://taraenroll.com/api/v1/add_principal";
                 }
 
+
+                System.out.println("Sending \n"+arr_firstname.get(i)
+                +"\n"+arr_surname.get(i)
+                        +"\n"+arr_othername.get(i)
+                        +"\n"+arr_dob.get(i)
+                        +"\n"+arr_email.get(i)
+                        +"\n"+arr_phone.get(i)
+                        +"\n"+arr_nin.get(i)
+                        +"\n"+arr_qualification.get(i)
+                        +"\n"+arr_question1.get(i)
+                        +"\n"+arr_question2.get(i)
+                        +"\n"+arr_question3.get(i)
+                        +"\n"+arr_question4.get(i)
+                        +"\n"+arr_religion.get(i)
+                        +"\n"+arr_address.get(i)
+                        +"\n"+arr_gender.get(i)
+                        +"\n"+arr_nok.get(i)
+                        +"\n"+arr_referee.get(i)
+                        +"\n"+arr_subject.get(i)
+                        +"\n"+arr_experience.get(i)
+                        +"\n"+arr_school.get(i)
+                        +"\n"+arr_schoollga.get(i)
+                        +"\n"+arr_createdby.get(i)
+                        +"\n"+arr_psnnumber.get(i)
+                        +"\n"+arr_picture.get(i)
+                        +"\n"+arr_fingerprint.get(i)
+                        +"\n"+arr_signature.get(i)
+                        +"\n"+arr_idcard.get(i)
+                        +"\n"+arr_employment.get(i)
+                        +"\n"+arr_promotion.get(i));
+
                 VolleyMultipartRequest volleyMultipartRequest = new VolleyMultipartRequest(Request.Method.POST, endpoint,
                         new Response.Listener<NetworkResponse>() {
                             @Override
@@ -190,6 +234,7 @@ public class StaffAdapter extends BaseAdapter {
 
                                     if (status.equals("successful")){
                                         //change to checkmark
+                                        buttons.setVisibility(View.GONE);
                                         progressBar.setVisibility(View.GONE);
                                         check.setVisibility(View.VISIBLE);
                                         //delete record from DB
@@ -277,8 +322,44 @@ public class StaffAdapter extends BaseAdapter {
                 rQueue.add(volleyMultipartRequest);
             }
         });
+        delete.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Dialog myDialog = new Dialog(context);
+                myDialog.setContentView(R.layout.custom_popup_delete_record);
+
+                EditText validation_code = myDialog.findViewById(R.id.validation_code);
+                Button confirm = myDialog.findViewById(R.id.confirm_button);
+
+                confirm.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View view) {
+                        checkValidity(validation_code.getText().toString(), arr_id.get(i), myDialog, validation_code, container);
+                    }
+                });
+
+                myDialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+                myDialog.setCanceledOnTouchOutside(true);
+                myDialog.show();
+            }
+        });
 
 
         return convertView;
+    }
+
+    private void checkValidity(String code, int id, Dialog dialog, EditText edtval, RelativeLayout container) {
+        if (code.equals("419205")){
+            //delete the record
+            myDB.deleteRecord(arr_id.get(id));
+            dialog.dismiss();
+            Toast.makeText(context, "Successfully deleted record", Toast.LENGTH_SHORT).show();
+            int backgroundColor = ContextCompat.getColor(context, R.color.red);
+            ColorDrawable colorDrawable = new ColorDrawable(backgroundColor);
+            container.setBackground(colorDrawable);
+        }else{
+            Toast.makeText(context, "Wrong code!!! Please try again", Toast.LENGTH_SHORT).show();
+            edtval.setError("Wrong code");
+        }
     }
 }

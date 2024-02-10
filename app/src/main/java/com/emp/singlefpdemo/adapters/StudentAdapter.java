@@ -1,8 +1,12 @@
 package com.emp.singlefpdemo.adapters;
 
+import android.app.Dialog;
 import android.content.Context;
 import android.content.Intent;
+import android.content.res.ColorStateList;
 import android.graphics.Bitmap;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -10,11 +14,15 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
+import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import androidx.core.content.ContextCompat;
 
 import com.android.volley.AuthFailureError;
 import com.android.volley.DefaultRetryPolicy;
@@ -46,9 +54,10 @@ import de.hdodenhof.circleimageview.CircleImageView;
 
 public class StudentAdapter extends BaseAdapter {
 
+    MyDatabaseHelper myDB;
     private RequestQueue rQueue;
 
-    private Context context;
+    public Context context;
     private ArrayList<Integer> arr_id;
     private ArrayList<String> arr_firstname;
     private ArrayList<String> arr_surname;
@@ -147,8 +156,10 @@ public class StudentAdapter extends BaseAdapter {
             convertView = inflaInflater.inflate(R.layout.list_saved_users, parent, false);
         }
 
-        MyDatabaseHelper myDB = new MyDatabaseHelper(context);
+        myDB = new MyDatabaseHelper(context);
 
+        RelativeLayout container = convertView.findViewById(R.id.container);
+        LinearLayout buttons = convertView.findViewById(R.id.buttons);
         CircleImageView userimg = convertView.findViewById(R.id.userimg);
         TextView name = convertView.findViewById(R.id.name);
         TextView dob = convertView.findViewById(R.id.dob);
@@ -157,6 +168,7 @@ public class StudentAdapter extends BaseAdapter {
         TextView gender = convertView.findViewById(R.id.gender);
         TextView schoolname = convertView.findViewById(R.id.schoolname);
         Button sync = convertView.findViewById(R.id.sync);
+        Button delete = convertView.findViewById(R.id.delete);
         ProgressBar progressBar = convertView.findViewById(R.id.progressBar);
         ImageView check = convertView.findViewById(R.id.check);
 
@@ -187,6 +199,7 @@ public class StudentAdapter extends BaseAdapter {
 
                                     if (status.equals("successful")){
                                         //change to checkmark
+                                        buttons.setVisibility(View.GONE);
                                         progressBar.setVisibility(View.GONE);
                                         check.setVisibility(View.VISIBLE);
                                         //delete record from DB
@@ -273,8 +286,44 @@ public class StudentAdapter extends BaseAdapter {
                 rQueue.add(volleyMultipartRequest);
             }
         });
+        delete.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Dialog myDialog = new Dialog(context);
+                myDialog.setContentView(R.layout.custom_popup_delete_record);
+
+                EditText validation_code = myDialog.findViewById(R.id.validation_code);
+                Button confirm = myDialog.findViewById(R.id.confirm_button);
+
+                confirm.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View view) {
+                        checkValidity(validation_code.getText().toString(), arr_id.get(i), myDialog, validation_code, container);
+                    }
+                });
+
+                myDialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+                myDialog.setCanceledOnTouchOutside(true);
+                myDialog.show();
+            }
+        });
 
 
         return convertView;
+    }
+
+    private void checkValidity(String code, int id, Dialog dialog, EditText edtval, RelativeLayout container) {
+        if (code.equals("419204")){
+            //delete the record
+            myDB.deleteRecord(arr_id.get(id));
+            dialog.dismiss();
+            Toast.makeText(context, "Successfully deleted record", Toast.LENGTH_SHORT).show();
+            int backgroundColor = ContextCompat.getColor(context, R.color.red);
+            ColorDrawable colorDrawable = new ColorDrawable(backgroundColor);
+            container.setBackground(colorDrawable);
+        }else{
+            Toast.makeText(context, "Wrong code!!! Please try again", Toast.LENGTH_SHORT).show();
+            edtval.setError("Wrong code");
+        }
     }
 }
