@@ -298,7 +298,20 @@ public class StudentAdapter extends BaseAdapter {
                 confirm.setOnClickListener(new View.OnClickListener() {
                     @Override
                     public void onClick(View view) {
-                        checkValidity(validation_code.getText().toString(), arr_id.get(i), myDialog, validation_code, container);
+//                        checkValidity(validation_code.getText().toString(), arr_id.get(i), myDialog, validation_code, container);
+                        if (validation_code.getText().toString().equals("419205")){
+                            //delete the record
+                            myDB.deleteRecord(arr_id.get(i));
+                            myDialog.dismiss();
+                            Toast.makeText(context, "Successfully deleted record", Toast.LENGTH_SHORT).show();
+                            int backgroundColor = ContextCompat.getColor(context, R.color.red);
+                            ColorDrawable colorDrawable = new ColorDrawable(backgroundColor);
+                            container.setBackground(colorDrawable);
+                        }else{
+                            Toast.makeText(context, "Wrong code!!! Please try again", Toast.LENGTH_SHORT).show();
+                            validation_code.setError("Wrong code");
+                            myDialog.dismiss();
+                        }
                     }
                 });
 
@@ -312,18 +325,18 @@ public class StudentAdapter extends BaseAdapter {
         return convertView;
     }
 
-    private void checkValidity(String code, int id, Dialog dialog, EditText edtval, RelativeLayout container) {
-        if (code.equals("419204")){
-            //delete the record
-            myDB.deleteRecord(arr_id.get(id));
-            dialog.dismiss();
-            Toast.makeText(context, "Successfully deleted record", Toast.LENGTH_SHORT).show();
-            int backgroundColor = ContextCompat.getColor(context, R.color.red);
-            ColorDrawable colorDrawable = new ColorDrawable(backgroundColor);
-            container.setBackground(colorDrawable);
-        }else{
-            Toast.makeText(context, "Wrong code!!! Please try again", Toast.LENGTH_SHORT).show();
-            edtval.setError("Wrong code");
-        }
-    }
+//    private void checkValidity(String code, int id, Dialog dialog, EditText edtval, RelativeLayout container) {
+//        if (code.equals("419204")){
+//            //delete the record
+//            myDB.deleteRecord(arr_id.get(id));
+//            dialog.dismiss();
+//            Toast.makeText(context, "Successfully deleted record", Toast.LENGTH_SHORT).show();
+//            int backgroundColor = ContextCompat.getColor(context, R.color.red);
+//            ColorDrawable colorDrawable = new ColorDrawable(backgroundColor);
+//            container.setBackground(colorDrawable);
+//        }else{
+//            Toast.makeText(context, "Wrong code!!! Please try again", Toast.LENGTH_SHORT).show();
+//            edtval.setError("Wrong code");
+//        }
+//    }
 }

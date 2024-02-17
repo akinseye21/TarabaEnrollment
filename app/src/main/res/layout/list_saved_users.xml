@@ -147,6 +147,7 @@
                 android:text="Delete Record"
                 android:layout_marginTop="5dp"
                 android:id="@+id/delete"
+                android:visibility="gone"
                 android:textColor="#fff"
                 android:textSize="15dp"
                 android:textAllCaps="false"

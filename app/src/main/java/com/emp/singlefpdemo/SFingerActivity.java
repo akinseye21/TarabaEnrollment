@@ -2941,7 +2941,7 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
         });
 
         ArrayAdapter<String> tertiaryAdapter;
-        String tert[] = {"Select Tertiary Qualification", "BSc", "BSc(Hons)", "B.Agric", "BBA", "BArch", "B.Tech", "BA", "BEd", "B.NSC", "B.V.Sc", "BEng", "BPhil", "BPharm", "BMLS", "BFA", "BFA", "BMed", "LLB", "MBBS"};
+        String tert[] = {"Select Tertiary Qualification", "BSc", "BSc(Hons)", "B.Agric", "BBA", "BArch", "B.Tech", "BA", "BEd", "B.NSC", "B.V.Sc", "BEng", "BPhil", "BPharm", "BMLS", "BFA", "BFA", "BMed", "LLB", "MBBS", "National Diploma (ND)", "HND", "NCE"};
         tertiaryAdapter = new ArrayAdapter<>(this, R.layout.simple_spinner_item, R.id.tx, tert);
         spinner_tertiary.setAdapter(tertiaryAdapter);
         spinner_tertiary.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
