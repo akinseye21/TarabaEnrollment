@@ -80,6 +80,9 @@ public class StaffAdapter extends BaseAdapter {
     private ArrayList<byte[]> arr_employment;
     private ArrayList<byte[]> arr_promotion;
     private ArrayList<String> arr_category;
+    private ArrayList<String> arr_bank_name;
+    private ArrayList<String> arr_acc_number;
+    private ArrayList<String> arr_acc_name;
 
     String endpoint;
 
@@ -91,7 +94,8 @@ public class StaffAdapter extends BaseAdapter {
                         ArrayList<String> arr_referee, ArrayList<String> arr_subject, ArrayList<String> arr_experience, ArrayList<String> arr_school,
                         ArrayList<String> arr_schoollga, ArrayList<String> arr_createdby, ArrayList<String> arr_psnnumber, ArrayList<byte[]> arr_picture,
                         ArrayList<byte[]> arr_fingerprint, ArrayList<byte[]> arr_signature, ArrayList<byte[]> arr_idcard, ArrayList<byte[]> arr_employment,
-                        ArrayList<byte[]> arr_promotion, ArrayList<String> arr_category){
+                        ArrayList<byte[]> arr_promotion, ArrayList<String> arr_category, ArrayList<String> arr_bank_name, ArrayList<String> arr_acc_number,
+                        ArrayList<String> arr_acc_name){
         //Getting all the values
         this.context = context;
         this.arr_id = arr_id;
@@ -125,6 +129,9 @@ public class StaffAdapter extends BaseAdapter {
         this.arr_employment = arr_employment;
         this.arr_promotion = arr_promotion;
         this.arr_category = arr_category;
+        this.arr_bank_name = arr_bank_name;
+        this.arr_acc_number = arr_acc_number;
+        this.arr_acc_name = arr_acc_name;
     }
 
     @Override
@@ -294,6 +301,9 @@ public class StaffAdapter extends BaseAdapter {
                         params.put("school_lga", arr_schoollga.get(i));
                         params.put("created_by", arr_createdby.get(i));
                         params.put("psn", arr_psnnumber.get(i));
+                        params.put("bank_name", arr_bank_name.get(i));
+                        params.put("acct_num", arr_acc_number.get(i));
+                        params.put("acct_name", arr_acc_name.get(i));
                         return params;
                     }
 

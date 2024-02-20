@@ -215,6 +215,7 @@ public class MainActivity extends AppCompatActivity {
                 Toast.makeText(MainActivity.this, "Login successful", Toast.LENGTH_SHORT).show();
                 Intent i = new Intent(MainActivity.this, SFingerActivity.class);
                 i.putExtra("userid", uid);
+                i.putExtra("from", "login");
                 startActivity(i);
             }
 

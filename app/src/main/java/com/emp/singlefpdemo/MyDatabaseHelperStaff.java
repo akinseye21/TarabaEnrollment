@@ -48,6 +48,9 @@ public class MyDatabaseHelperStaff extends SQLiteOpenHelper {
     private static final String COLUMN_EMPLOYMENT_LETTER = "employment";
     private static final String COLUMN_PROMOTION_LETTER = "promotion";
     private static final String COLUMN_STAFF_CATEGORY = "staff_category";
+    private static final String COLUMN_BANK_NAME = "bank_name";
+    private static final String COLUMN_ACCOUNT_NUMBER = "acc_number";
+    private static final String COLUMN_ACCOUNT_NAME = "acc_name";
 
     public MyDatabaseHelperStaff(@Nullable Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
@@ -87,7 +90,10 @@ public class MyDatabaseHelperStaff extends SQLiteOpenHelper {
                 COLUMN_IDCARD + " BLOB, "+
                 COLUMN_EMPLOYMENT_LETTER + " BLOB, "+
                 COLUMN_PROMOTION_LETTER + " BLOB, "+
-                COLUMN_STAFF_CATEGORY + " TEXT);";
+                COLUMN_STAFF_CATEGORY + " TEXT, "+
+                COLUMN_BANK_NAME + " TEXT, "+
+                COLUMN_ACCOUNT_NUMBER + " TEXT, "+
+                COLUMN_ACCOUNT_NAME + " TEXT);";
         db.execSQL(query);
     }
 
@@ -101,7 +107,9 @@ public class MyDatabaseHelperStaff extends SQLiteOpenHelper {
                     String nin, String qualification, String question1, String question2, String question3,
                     String question4, String religion, String address, String gender, String nok, String referee,
                     String subjects, String experience, String school, String schoollga, String created_by, String psn,
-                    byte[] picture, byte[] fingerprint,  byte[] signature, byte[] idcard, byte[] employment, byte[] promotion, String staff_category){
+                    byte[] picture, byte[] fingerprint,  byte[] signature, byte[] idcard, byte[] employment, byte[] promotion,
+                    String staff_category, String bankname, String accnumber, String accname){
+
         SQLiteDatabase db = this.getWritableDatabase();
         ContentValues cv = new ContentValues();
 
@@ -135,6 +143,9 @@ public class MyDatabaseHelperStaff extends SQLiteOpenHelper {
         cv.put(COLUMN_EMPLOYMENT_LETTER, employment);
         cv.put(COLUMN_PROMOTION_LETTER, promotion);
         cv.put(COLUMN_STAFF_CATEGORY, staff_category);
+        cv.put(COLUMN_BANK_NAME, bankname);
+        cv.put(COLUMN_ACCOUNT_NUMBER, accnumber);
+        cv.put(COLUMN_ACCOUNT_NAME, accname);
 
         long result = db.insert(TABLE_NAME, null, cv);
         if(result == -1){
