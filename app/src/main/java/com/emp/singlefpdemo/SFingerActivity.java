@@ -6,6 +6,7 @@ import android.app.Dialog;
 import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.res.AssetManager;
 import android.database.Cursor;
@@ -13,6 +14,11 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
+import android.location.Address;
+import android.location.Geocoder;
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
 import android.net.ConnectivityManager;
 import android.net.NetworkCapabilities;
 import android.net.NetworkInfo;
@@ -41,13 +47,12 @@ import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
-import com.android.volley.AuthFailureError;
 import com.android.volley.DefaultRetryPolicy;
-import com.android.volley.NetworkResponse;
 import com.android.volley.Request;
 import com.android.volley.RequestQueue;
 import com.android.volley.Response;
@@ -63,7 +68,6 @@ import com.example.jy.demo.fingerprint.CallDecoder;
 import com.example.jy.demo.fingerprint.CallFprint;
 import com.google.android.material.textfield.TextInputLayout;
 import com.kyanogen.signatureview.SignatureView;
-import com.szsicod.print.utils.BitmapUtils;
 import com.techshino.fingerprint.CaptureListener;
 import com.techshino.fingerprint.FingerDeviceStatusListener;
 import com.xiongdi.natives.IoControl;
@@ -75,25 +79,23 @@ import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.poifs.filesystem.POIFSFileSystem;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.Row;
-import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import butterknife.BindView;
 import butterknife.OnClick;
 import io.reactivex.Observable;
 import io.reactivex.ObservableOnSubscribe;
@@ -102,8 +104,14 @@ import io.reactivex.disposables.CompositeDisposable;
 import io.reactivex.disposables.Disposable;
 import io.reactivex.schedulers.Schedulers;
 
-public class SFingerActivity extends BaseActivity implements FingerDeviceStatusListener, CaptureListener {
+public class SFingerActivity extends BaseActivity implements FingerDeviceStatusListener, CaptureListener, LocationListener {
 
+    SharedPreferences preferences, preferences2;
+
+    String userLatitude, userLongitude;
+
+
+    LocationManager locationManager;
     MyDatabaseHelper myDB;
     MyDatabaseHelperStaff myDB_Staff;
     private RequestQueue rQueue;
@@ -115,6 +123,7 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
 //    Import from other code
 
 
+    TextView defaultLGA, defaultLGA2, defaultSchool, defaultSchool2;
     TextView username;
     LinearLayout leftSide, middle;
     LinearLayout studentEnrollment, staffEnrollment, dataSync;
@@ -152,19 +161,19 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
     String selected_state = "";
     ArrayList<String> lga_list = new ArrayList<>();
     String selected_lga = "";
-    String str_surname, str_firstname, str_othername, str_dob, str_nin, str_address, str_phone, str_email, str_shoe, str_height, str_weight;
-    String str_gender, str_religion, str_soo, str_lga2;
+    String str_surname="", str_firstname="", str_othername="", str_dob="", str_nin="", str_address="", str_phone="", str_email="", str_shoe="", str_height="", str_weight="";
+    String str_gender="", str_religion="", str_soo="", str_lga2="";
 
     //parent data
     TextInputLayout til_parentname, til_parentphone, til_parentrelationship, til_parentaddress;
     EditText edt_parentname, edt_parentphone, edt_parentrelationship, edt_parentaddress;
     ImageView img_parentname, img_parentphone, img_parentrelationship, img_parentaddress;
     Boolean parentname=false, parentphone=false, parentrelationship=false, parentaddress=false;
-    String str_parentname, str_parentphone, str_parentrelationship, str_parentaddress;
+    String str_parentname="", str_parentphone="", str_parentrelationship="", str_parentaddress="";
 
     //security questions
     EditText edt_security1, edt_security2, edt_security3, edt_security4;
-    String str_security1, str_security2, str_security3, str_security4;
+    String str_security1="", str_security2="", str_security3="", str_security4="";
 
     //portrait capture
     Button openCamera;
@@ -264,25 +273,33 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
     ArrayList<byte[]> arr_staff_employment = new ArrayList<>();
     ArrayList<byte[]> arr_staff_promotion = new ArrayList<>();
     ArrayList<String> arr_staff_category = new ArrayList<>();
+    ArrayList<String> arr_bank_name = new ArrayList<>();
+    ArrayList<String> arr_acc_number = new ArrayList<>();
+    ArrayList<String> arr_acc_name = new ArrayList<>();
+    ArrayList<String> arr_latitude = new ArrayList<>();
+    ArrayList<String> arr_longitude = new ArrayList<>();
+    ArrayList<String> bank_list = new ArrayList<>();
+
 
 
     TextView back, home;
     LinearLayout logout1, logout2, logout3;
-    String uid;
+    String uid="", from="";
     TextView totalReg, totalSchools, todaysReg, previousDay;
-    String tesis;
+    String tesis="";
 
 
 
 
     //Staff Enrollment
+    TextView txt_staff_lga, txt_staff_schooltype, txt_staff_school;
     LinearLayout next2, staff_toploader;
     ScrollView staffContainer1, staffContainer2, staffContainer4, staffContainer5, staffContainer6, staffContainer7, staffContainer8;
-    LinearLayout staffDashboard, staffContainer3;
+    LinearLayout staffDashboard, staffContainer3, staffContainerAccount;
     RelativeLayout staffContainer9, staffContainer10;
-    RelativeLayout staff_bar1, staff_bar2, staff_bar3, staff_bar4, staff_bar5, staff_bar6, staff_bar7, staff_bar8, staff_bar9, staff_bar10;
+    RelativeLayout staff_bar1, staff_bar2, staff_bar3, staff_bar4, staff_bar5, staff_bar6, staff_bar7, staff_bar8, staff_bar9, staff_bar10, staff_bar_account;
     LinearLayout teacherForm, schoolHeadForm, principalForm;
-    Spinner spinner_staff_lga, spinner_staff_schooltype, spinner_staff_school;
+//    Spinner spinner_staff_lga, spinner_staff_schooltype, spinner_staff_school;
     String selected_staff_lga = "", selected_staff_schooltype="", selected_staff_school="";
     String staff_lga = "", staff_schoolType = "", staff_school = "";
     String selected_staff_type = "";
@@ -291,14 +308,14 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
     TextInputLayout til_staff_surname, til_staff_firstname, til_staff_dob, til_staff_phone, til_staff_nin, til_staff_email;
     ImageView img_staff_surname, img_staff_firstname, img_staff_dob, img_staff_phone, img_staff_nin, img_staff_email, img_staff_gender;
     Boolean staff_surname=false, staff_firstname=false, staff_gender=false, staff_dob=false, staff_phone=false, staff_nin=false, staff_email=false;
-    String str_staff_surname, str_staff_firstname, str_staff_gender, str_staff_dob, str_staff_phone, str_staff_nin, str_staff_email;
+    String str_staff_surname="", str_staff_firstname="", str_staff_gender="", str_staff_dob="", str_staff_phone="", str_staff_nin="", str_staff_email="";
     EditText edt_psnNum;
     TextInputLayout til_psnNum;
     ImageView img_psnNum;
-    Boolean staff_psnNum;
-    String str_staff_psnNum;
+    Boolean staff_psnNum=false;
+    String str_staff_psnNum="";
     Spinner spinner_postgraduate, spinner_tertiary, spinner_secondary;
-    String edu_quality;
+    String edu_quality="";
     EditText edt_staff_experience, edt_subject;
     ImageView img_postgraduate, img_tertiary, img_secondary, img_staff_experience, img_staff_subject;
     String str_postgrad="", str_tertiary="", str_secondary="", str_staff_subject="", str_staff_experience="";
@@ -334,6 +351,11 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
     ArrayList<String> arr_responses = new ArrayList<>();
     int randomNumber1, randomNumber2;
     LinearLayout endStaff;
+    EditText accNumber, accName;
+    Spinner spinner_bank_list;
+    Boolean staffAccountNumber=false, staffAccountName=false, staffBankName=false;
+    String str_staff_accnum="", str_staff_accname="", str_staff_bankname="";
+    ArrayAdapter<String> bankAdapter;
 
 //    Import ends here
 
@@ -361,6 +383,13 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
 
         Intent i = getIntent();
         uid = i.getStringExtra("userid");
+        from = i.getStringExtra("from");
+
+
+        defaultLGA = findViewById(R.id.defaultLGA);
+        defaultSchool = findViewById(R.id.defaultSchool);
+        defaultLGA2 = findViewById(R.id.defaultLGA2);
+        defaultSchool2 = findViewById(R.id.defaultSchool2);
 
         captureBtn = findViewById(R.id.capture_btn);
         verifyBtn = findViewById(R.id.verify_btn);
@@ -438,6 +467,9 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
         bar7 = findViewById(R.id.bar7);
 
         //staff enrollment
+        txt_staff_lga = findViewById(R.id.staff_lga);
+        txt_staff_schooltype = findViewById(R.id.staff_schooltype);
+        txt_staff_school = findViewById(R.id.staff_school);
         next2 = findViewById(R.id.next2);
         staff_toploader = findViewById(R.id.staff_topLoader);
         staff_bar1 = findViewById(R.id.staff_bar1);
@@ -450,6 +482,7 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
         staff_bar8 = findViewById(R.id.staff_bar8);
         staff_bar9 = findViewById(R.id.staff_bar9);
         staff_bar10 = findViewById(R.id.staff_bar10);
+        staff_bar_account = findViewById(R.id.staff_bar_account);
         staffContainer1 = findViewById(R.id.staff_container1);
         staffContainer2 = findViewById(R.id.staff_container2);
         staffContainer3 = findViewById(R.id.staff_container3);
@@ -460,6 +493,7 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
         staffContainer8 = findViewById(R.id.staff_container8);
         staffContainer9 = findViewById(R.id.staff_container9);
         staffContainer10 = findViewById(R.id.staff_container10);
+        staffContainerAccount = findViewById(R.id.staff_container_account);
         staffDashboard = findViewById(R.id.staff_dashboard);
         teacherForm = findViewById(R.id.teachersForm);
         schoolHeadForm = findViewById(R.id.headofschoolform);
@@ -485,9 +519,9 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
                 staffPortal(selected_staff_type);
             }
         });
-        spinner_staff_lga = findViewById(R.id.spinner_staff_lga);
-        spinner_staff_schooltype = findViewById(R.id.spinner_staff_schooltype);
-        spinner_staff_school = findViewById(R.id.spinner_staff_school);
+//        spinner_staff_lga = findViewById(R.id.spinner_staff_lga);
+//        spinner_staff_schooltype = findViewById(R.id.spinner_staff_schooltype);
+//        spinner_staff_school = findViewById(R.id.spinner_staff_school);
 
         //enrollment verification
         finalImage = findViewById(R.id.finalImage);
@@ -508,7 +542,6 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
         finalHeight = findViewById(R.id.finalHeight);
 
         readLGAForTab1();
-        student_location();
         student_bio_data();
 
         readPrimarySchoolFromExcel();
@@ -670,8 +703,19 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
             public void onClick(View view) {
                 if (staffContainer1.getVisibility()==View.VISIBLE){
                     checkStaffLocationInputValidity();
+                    staffContainer2.setVisibility(View.VISIBLE);
+                    staffContainer1.setVisibility(View.GONE);
+                    staff_bar2.setBackgroundResource(R.drawable.quote1);
+
                 }
                 else if (staffContainer2.getVisibility()==View.VISIBLE){
+                    if (edt_staff_email.equals("")){
+                        str_staff_email = "";
+                    }
+                    if (edt_staff_nin.equals("")){
+                        str_staff_nin = "";
+                    }
+
                     if (staff_surname && staff_firstname && staff_dob && staff_gender && staff_phone){
                         staffContainer2.setVisibility(View.GONE);
                         staff_bar3.setBackgroundResource(R.drawable.quote1);
@@ -682,14 +726,34 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
                     }
                 }
                 else if (staffContainer3.getVisibility()==View.VISIBLE){
+
                     if (staff_psnNum){
                         staffContainer3.setVisibility(View.GONE);
-                        staff_bar4.setBackgroundResource(R.drawable.quote1);
+                        staffContainerAccount.setVisibility(View.VISIBLE);
+                        staff_bar_account.setBackgroundResource(R.drawable.quote1);
+
+                        staffAccountInput();
+
+
+//                        staffContainer3.setVisibility(View.GONE);
+//                        staff_bar4.setBackgroundResource(R.drawable.quote1);
+//                        staffContainer4.setVisibility(View.VISIBLE);
+//
+//                        eduQualification();
+                    }else{
+                        Toast.makeText(SFingerActivity.this, "Wrong PSN Number", Toast.LENGTH_SHORT).show();
+                    }
+                }
+                else if (staffContainerAccount.getVisibility()==View.VISIBLE){
+                    if (staffAccountName && staffAccountNumber && staffBankName){
+                        staffContainerAccount.setVisibility(View.GONE);
+//                        staff_bar4.setVisibility(View.VISIBLE);
                         staffContainer4.setVisibility(View.VISIBLE);
+                        staff_bar4.setBackgroundResource(R.drawable.quote1);
 
                         eduQualification();
                     }else{
-                        Toast.makeText(SFingerActivity.this, "Wrong PSN Number", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(SFingerActivity.this, "Please check your inputs again", Toast.LENGTH_SHORT).show();
                     }
                 }
                 else if (staffContainer4.getVisibility()==View.VISIBLE){
@@ -737,18 +801,28 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
 
                 }
                 else if (staffContainer8.getVisibility()==View.VISIBLE){
-                    staffContainer8.setVisibility(View.GONE);
-                    staff_bar9.setBackgroundResource(R.drawable.quote1);
-                    staffContainer9.setVisibility(View.VISIBLE);
+                    if (img_employmentLetter.getDrawable() == null && img_promotionLetter.getDrawable() == null && img_idCard.getDrawable() == null){
+                        Toast.makeText(SFingerActivity.this, "Ensure you snapp necessary documents before proceeding", Toast.LENGTH_SHORT).show();
+                    }else{
+                        staffContainer8.setVisibility(View.GONE);
+                        staff_bar9.setBackgroundResource(R.drawable.quote1);
+                        staffContainer9.setVisibility(View.VISIBLE);
 
-                    staffPortrait();
+                        staffPortrait();
+                    }
+
                 }
                 else if (staffContainer9.getVisibility()==View.VISIBLE){
-                    staffContainer9.setVisibility(View.GONE);
-                    staff_bar10.setBackgroundResource(R.drawable.quote1);
-                    staffContainer10.setVisibility(View.VISIBLE);
+                    if (surfaceView_staff.getDrawable() == null){
+                        Toast.makeText(SFingerActivity.this, "Please snap staff picture", Toast.LENGTH_SHORT).show();
+                    }else{
+                        staffContainer9.setVisibility(View.GONE);
+                        staff_bar10.setBackgroundResource(R.drawable.quote1);
+                        staffContainer10.setVisibility(View.VISIBLE);
 
-                    staffFingerprint();
+                        staffFingerprint();
+                    }
+
                 }
                 else if (staffContainer10.getVisibility()==View.VISIBLE){
                     next2.setVisibility(View.GONE);
@@ -772,6 +846,7 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
             public void onClick(View view) {
                 getDashboardData();
                 tab1.setVisibility(View.GONE);
+                tab2.setVisibility(View.GONE);
                 tab5.setVisibility(View.GONE);
                 middle.setVisibility(View.VISIBLE);
 //                rightSide.setVisibility(View.VISIBLE);
@@ -806,6 +881,15 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
         staffEnrollment.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                preferences2 = getSharedPreferences("TempStorage", Context.MODE_PRIVATE);
+                String pref_lga = preferences2.getString("lga", "");
+                String pref_schooltype = preferences2.getString("schooltype", "");
+                String pref_school = preferences2.getString("school", "");
+
+                txt_staff_lga.setText("LGA: "+pref_lga);
+                txt_staff_schooltype.setText("SCHOOL TYPE: "+pref_schooltype);
+                txt_staff_school.setText("SCHOOL: "+pref_school);
+
                 tab1.setVisibility(View.GONE);
                 tab2.setVisibility(View.VISIBLE);
                 tab5.setVisibility(View.GONE);
@@ -911,98 +995,475 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
                 getDashboardData();
             }
         });
+
+        if (from.equals("login")){
+            showGlobalDialog();
+        }else if (from.equals("refresh")){
+            //do nothing
+            //update the default lga name and school name
+            preferences2 = getSharedPreferences("TempStorage", Context.MODE_PRIVATE);
+            String pref_lga = preferences2.getString("lga", "");
+            String pref_schooltype = preferences2.getString("schooltype", "");
+            String pref_school = preferences2.getString("school", "");
+
+            defaultLGA.setText(pref_lga);
+            defaultSchool.setText(pref_school);
+            defaultLGA2.setText(pref_lga);
+            defaultSchool2.setText(pref_school);
+
+            checker(pref_schooltype);
+        }
+
     }
 
+
+
+    private void showGlobalDialog() {
+        //load the geolocation too
+        //Runtime permissions
+        if (ContextCompat.checkSelfPermission(SFingerActivity.this, Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED){
+            ActivityCompat.requestPermissions(SFingerActivity.this,new String[]{
+                    Manifest.permission.ACCESS_FINE_LOCATION
+            },100);
+        }
+
+        try {
+            locationManager = (LocationManager) getApplicationContext().getSystemService(LOCATION_SERVICE);
+            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER,5000,5,SFingerActivity.this);
+        }catch (Exception e){
+            e.printStackTrace();
+        }
+
+
+
+        Dialog myDialog = new Dialog(SFingerActivity.this);
+        myDialog.setContentView(R.layout.custom_popup_onlogin);
+
+        spinner_lga = myDialog.findViewById(R.id.spinner_lga);
+        spinner_school_type = myDialog.findViewById(R.id.spinner_schooltype);
+        spinner_school = myDialog.findViewById(R.id.spinner_school);
+        Button btnnext = myDialog.findViewById(R.id.btnnext);
+
+        lgaspinnerAdapter = new ArrayAdapter<>(this, R.layout.simple_spinner_item, R.id.tx, taraba_lga);
+        spinner_lga.setAdapter(lgaspinnerAdapter);
+        spinner_lga.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> adapterView, View view, int i, long l) {
+                selected_taraba_lga = spinner_lga.getSelectedItem().toString();
+                readSchoolPerSelectedTarabaLga(selected_taraba_lga, selected_taraba_schooltype);
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> adapterView) {
+
+            }
+        });
+
+        String school_type[] = {"Select School Type","Primary School", "Secondary School"};
+        schooltypespinnerAdapter = new ArrayAdapter<>(this, R.layout.simple_spinner_item, R.id.tx, school_type);
+        spinner_school_type.setAdapter(schooltypespinnerAdapter);
+        spinner_school_type.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
+                // your code here
+                if (position==1){
+                    //school list should be primary school
+                    populated_school.clear();
+                    selected_taraba_schooltype = "Primary";
+                    readSchoolPerSelectedTarabaLga(selected_taraba_lga, selected_taraba_schooltype);
+
+                    schoolspinnerAdapter = new ArrayAdapter<>(SFingerActivity.this, R.layout.simple_spinner_item, R.id.tx, populated_school);
+                    spinner_school.setAdapter(schoolspinnerAdapter);
+//                    checker("Primary");
+                }else if (position==2){
+                    //school list should be secondary school
+                    populated_school.clear();
+                    selected_taraba_schooltype = "Secondary";
+                    readSchoolPerSelectedTarabaLga(selected_taraba_lga, selected_taraba_schooltype);
+
+                    schoolspinnerAdapter = new ArrayAdapter<>(SFingerActivity.this, R.layout.simple_spinner_item, R.id.tx, populated_school);
+                    spinner_school.setAdapter(schoolspinnerAdapter);
+//                    checker("Secondary");
+                }else if (position==0){
+                    //school list should be secondary school
+                    populated_school.clear();
+
+                    String school[] = {"Select School"};
+                    schoolspinnerAdapter = new ArrayAdapter<>(SFingerActivity.this, R.layout.simple_spinner_item, R.id.tx, school);
+                    spinner_school.setAdapter(schoolspinnerAdapter);
+//                    checker("");
+                }
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parentView) {
+                // your code here
+            }
+
+        });
+
+        btnnext.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+
+                if (spinner_lga.getSelectedItem().toString().equals("Select Local Government Area") || spinner_lga.getSelectedItem().toString().equals("")){
+                    lga = "";
+                }else{
+                    lga = spinner_lga.getSelectedItem().toString();
+                }
+                if (spinner_school_type.getSelectedItem().toString().equals("Select School Type") || spinner_school_type.getSelectedItem().toString().equals("")){
+                    schoolType = "";
+                }else{
+                    schoolType = spinner_school_type.getSelectedItem().toString();
+                }
+                if (spinner_school.getSelectedItem().toString().equals("Select School") || spinner_school.getSelectedItem().toString().equals("")){
+                    school = "";
+                }else{
+                    school = spinner_school.getSelectedItem().toString();
+                }
+
+                if (!lga.equals("") && !schoolType.equals("") && !school.equals("")){
+                    String final_schooltype = "";
+                    if (schoolType.equals("Primary School")){
+                        final_schooltype = "Primary";
+                    }else if(schoolType.equals("Secondary School")){
+                        final_schooltype = "Secondary";
+                    }
+
+                    preferences = getSharedPreferences("TempStorage", Context.MODE_PRIVATE);
+                    SharedPreferences.Editor myEdit = preferences.edit();
+                    myEdit.putString("lga", lga);
+                    myEdit.putString("schooltype", final_schooltype);
+                    myEdit.putString("school", school);
+                    myEdit.commit();
+                    myDialog.dismiss();
+
+                    //update the default lga name and school name
+                    defaultLGA.setText(lga);
+                    defaultSchool.setText(school);
+                    defaultLGA2.setText(lga);
+                    defaultSchool2.setText(school);
+
+                    student_location();
+
+                }else{
+                    Toast.makeText(SFingerActivity.this, "Please select the right options", Toast.LENGTH_SHORT).show();
+                }
+
+
+
+            }
+        });
+
+        myDialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        myDialog.setCanceledOnTouchOutside(false);
+        myDialog.show();
+    }
+
+
+    @Override
+    protected void initDatas() {
+        compositeDisposable = new CompositeDisposable();
+    }
+
+    @Override
+    public int getContentViewId() {
+        return R.layout.activity_s_finger;
+    }
+
+    public void openDevice(boolean isChecked) {
+        if (isChecked) {
+            startLoadding("Opening Device...");
+            mApi.openFingerDevice(this);
+        } else {
+            mApi.release();
+            captureBtn.setEnabled(false);
+            verifyBtn.setEnabled(false);
+            stopLoadding();
+        }
+    }
+
+    public void startLoadding(String content) {
+        if (mDialog == null) {
+            mDialog = new ProgressDialog(this);
+            mDialog.setCancelable(false);
+        }
+        mDialog.setMessage(content);
+        if (!mDialog.isShowing()) {
+            mDialog.show();
+        }
+    }
+
+    public void stopLoadding() {
+        if (mDialog != null && !isFinishing()) {
+            mDialog.dismiss();
+        }
+    }
+
+    @Override
+    public void connect(int result) {
+        captureBtn.setEnabled(true);
+        Log.e(TAG, "FingerInit状态" + result);
+        stopLoadding();
+    }
+
+    @Override
+    public void disconnect() {
+        stopLoadding();
+        Log.e(TAG, "disconnect");
+        showToast("disconnect");
+    }
+
+    private void showToast(String msg) {
+        Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
+    }
+
+    @Override
+    public void captureSuccess(int NFIQ, byte[] img_Buffer, int[] size, byte[] templateBuffer) {
+        Bitmap bitmap = BitmapFactory.decodeByteArray(
+                img_Buffer, 0, 256 * 360 + 1024 + 54);
+        prev.setImageBitmap(bitmap);
+        prev_staff.setImageBitmap(bitmap);
+        finalFingerprint.setImageBitmap(bitmap);
+        tip.setText(getString(R.string.capture_finish));
+        tip_staff.setText(getString(R.string.capture_finish));
+        Log.e(TAG, "NFIQ:" + NFIQ);
+        quality.setText(String.valueOf((5 - NFIQ) * 20));
+        quality_staff.setText(String.valueOf((5 - NFIQ) * 20));
+        if (verifyMode) {
+            startVerify(img_Buffer);
+        } else {
+            captureIv.setImageBitmap(bitmap);
+            captureIv_staff.setImageBitmap(bitmap);
+            register(img_Buffer);
+        }
+
+        //converting bitmap to bytearray
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, baos);
+        b_finger = baos.toByteArray();
+    }
+
+    @Override
+    public void captureFail(int result, String failMsg) {
+        tip.setText(failMsg);
+        tip_staff.setText(failMsg);
+        captureBtn.setEnabled(true);
+    }
+
+    @Override
+    public void captureOnPress(int NFIQ, byte[] img_Buffer, int[] size) {
+        Bitmap bitmap = BitmapFactory.decodeByteArray(
+                img_Buffer, 0, 256 * 360 + 1024 + 54);
+        prev.setImageBitmap(bitmap);
+        prev_staff.setImageBitmap(bitmap);
+        Log.e(TAG, "NFIQ:" + NFIQ);
+        quality.setText(String.valueOf((5 - NFIQ) * 20));
+        quality_staff.setText(String.valueOf((5 - NFIQ) * 20));
+    }
+
+    @OnClick({R.id.capture_btn, R.id.verify_btn, R.id.capture_btn_staff})
+    public void onClick(View v) {
+        switch (v.getId()) {
+            case R.id.capture_btn:
+                Log.e(TAG, "capture_btn");
+                tip.setText("capture...");
+                verifyMode = false;
+                verify_tv.setText("");
+                prev.setImageBitmap(null);
+                captureIv.setImageBitmap(null);
+                captureBtn.setEnabled(false);
+                verifyBtn.setEnabled(false);
+//                mDevice.startCapture(this);
+                mApi.startCapture(40, this);
+                break;
+            case R.id.verify_btn:
+                verify_tv.setText("");
+                captureBtn.setEnabled(false);
+                verifyBtn.setEnabled(false);
+                verifyMode = true;
+                tip.setText("verify...");
+                mApi.startCapture(40, this);
+                break;
+            case R.id.capture_btn_staff:
+                verifyMode = false;
+                verify_tv.setText("");
+                prev_staff.setImageBitmap(null);
+                captureIv_staff.setImageBitmap(null);
+//                captureBtn.setEnabled(false);
+//                verifyBtn.setEnabled(false);
+//                mDevice.startCapture(this);
+                mApi.startCapture(40, this);
+                break;
+
+        }
+    }
+
+    private void register(byte[] bmpdata) {
+        bmpToXyt(srcfile, bmpdata);
+    }
+
+    private void startVerify(byte[] bmpdata) {
+        bmpToXyt(dstfile, bmpdata);
+    }
+
+    private void bmpToXyt(String filepath, byte[] bmpData) {
+        Disposable disposable = Observable.create((ObservableOnSubscribe<Message>) emitter -> {
+                    if (bmpData != null) {
+                        File file = new File(AppConfig.DATA_PATH);
+                        if (!file.exists()) {
+                            file.mkdirs();
+                        }
+                        FileUtils.writeByteArrayToFile(new File(filepath), bmpData);
+                        String pgmname = filepath.replace(".bmp", ".pgm");
+                        String xytname = filepath.replace(".bmp", ".xyt");
+                        CallDecoder.Bmp2PgmNoTripDistort(filepath, pgmname);
+                        CallFprint.pgmChangeToXyt(pgmname, xytname);
+                        Message msg = Message.obtain();
+                        msg.what = 0;
+                        if (verifyMode) {
+                            msg.what = 1;
+                            long start = System.currentTimeMillis();
+                            int nRet = CallFprint.fprintCompare(dstfile.replace(".bmp", ".xyt"), srcfile.replace(".bmp", ".xyt"));
+                            Log.i(TAG, "fprintCompare nRet= " + nRet);
+                            msg.arg1 = nRet;
+                            long stop = System.currentTimeMillis();
+                            Log.i(TAG, "use time:" + (stop - start) + "ms");
+                        }
+                        emitter.onNext(msg);
+                        emitter.onComplete();
+                    }
+                }).subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(msg -> {
+                    if (msg.what == 1) {
+                        Log.e(TAG, "比对完成");
+                        captureBtn.setEnabled(true);
+                        verifyBtn.setEnabled(true);
+                        int score = msg.arg1;
+                        tip.setText("score:" + score);
+                        if (score > threadHold) {
+                            verify_tv.setText(getResources().getString(R.string.verify_success));
+                            verify_tv.setTextColor(getResources().getColor(R.color.green));
+                        } else {
+                            verify_tv.setText(getResources().getString(R.string.verify_faild));
+                            verify_tv.setTextColor(getResources().getColor(R.color.red));
+                        }
+                    } else {
+                        Log.e(TAG, "register complete!");
+                        verifyBtn.setEnabled(true);
+                        tip.setText("register complete!");
+                    }
+                });
+        compositeDisposable.add(disposable);
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        //指纹下电
+        IoControl.getInstance().setIoStatus(IoControl.USBFP_PATH, IoControl.IOSTATUS.DISABLE);
+        openDevice(false);
+    }
+
+
+
+
+
+
+
+//    STUDENT ENROLLMENT
     private void getAllRecords() {
         back_txt = findViewById(R.id.back_txt);
         back_txt.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                default_sync.setVisibility(View.VISIBLE);
-                allrecords.setVisibility(View.GONE);
-            }
-        });
+        @Override
+        public void onClick(View view) {
+            default_sync.setVisibility(View.VISIBLE);
+            allrecords.setVisibility(View.GONE);
+        }
+    });
         myList = findViewById(R.id.listview);
 
         //create DB instance
         myDB = new MyDatabaseHelper(SFingerActivity.this);
         if (myDB.getRecordCount()==0){
-            Toast.makeText(SFingerActivity.this, "No records to sync", Toast.LENGTH_SHORT).show();
-            default_sync.setVisibility(View.VISIBLE);
-            allrecords.setVisibility(View.GONE);
-        }else {
-            //to read all records in DB
-            Cursor cursor = myDB.readAllData();
-            if (cursor != null && cursor.moveToFirst()) {
+        Toast.makeText(SFingerActivity.this, "No records to sync", Toast.LENGTH_SHORT).show();
+        default_sync.setVisibility(View.VISIBLE);
+        allrecords.setVisibility(View.GONE);
+    }else {
+        //to read all records in DB
+        Cursor cursor = myDB.readAllData();
+        if (cursor != null && cursor.moveToFirst()) {
 
-                arr_id.clear();
-                arr_firstname.clear();
-                arr_surname.clear();
-                arr_othername.clear();
-                arr_dob.clear();
-                arr_guardianname.clear();
-                arr_guardianphone.clear();
-                arr_guardianaddress.clear();
-                arr_guardianrelationship.clear();
-                arr_question1.clear();
-                arr_question2.clear();
-                arr_question3.clear();
-                arr_question4.clear();
-                arr_question5.clear();
-                arr_religion.clear();
-                arr_address.clear();
-                arr_picture.clear();
-                arr_fingerprint.clear();
-                arr_signature.clear();
-                arr_gender.clear();
-                arr_class.clear();
-                arr_shoe_size.clear();
-                arr_height.clear();
-                arr_weight.clear();
-                arr_origin.clear();
-                arr_schoolname.clear();
-                arr_lga.clear();
-                arr_createdby.clear();
-                arr_tesis_number.clear();
+            arr_id.clear();
+            arr_firstname.clear();
+            arr_surname.clear();
+            arr_othername.clear();
+            arr_dob.clear();
+            arr_guardianname.clear();
+            arr_guardianphone.clear();
+            arr_guardianaddress.clear();
+            arr_guardianrelationship.clear();
+            arr_question1.clear();
+            arr_question2.clear();
+            arr_question3.clear();
+            arr_question4.clear();
+            arr_question5.clear();
+            arr_religion.clear();
+            arr_address.clear();
+            arr_picture.clear();
+            arr_fingerprint.clear();
+            arr_signature.clear();
+            arr_gender.clear();
+            arr_class.clear();
+            arr_shoe_size.clear();
+            arr_height.clear();
+            arr_weight.clear();
+            arr_origin.clear();
+            arr_schoolname.clear();
+            arr_lga.clear();
+            arr_createdby.clear();
+            arr_tesis_number.clear();
 
-                do {
-                    arr_id.add(cursor.getInt(0));
-                    arr_firstname.add(cursor.getString(1));
-                    arr_surname.add(cursor.getString(2));
-                    arr_othername.add(cursor.getString(3));
-                    arr_dob.add(cursor.getString(4));
-                    arr_guardianname.add(cursor.getString(5));
-                    arr_guardianphone.add(cursor.getString(6));
-                    arr_guardianaddress.add(cursor.getString(7));
-                    arr_guardianrelationship.add(cursor.getString(8));
-                    arr_question1.add(cursor.getString(9));
-                    arr_question2.add(cursor.getString(10));
-                    arr_question3.add(cursor.getString(11));
-                    arr_question4.add(cursor.getString(12));
-                    arr_question5.add(cursor.getString(13));
-                    arr_religion.add(cursor.getString(14));
-                    arr_address.add(cursor.getString(15));
-                    arr_picture.add(cursor.getBlob(16));
-                    arr_fingerprint.add(cursor.getBlob(17));
-                    arr_signature.add(cursor.getBlob(18));
-                    arr_gender.add(cursor.getString(19));
-                    arr_class.add(cursor.getString(20));
-                    arr_shoe_size.add(cursor.getString(21));
-                    arr_height.add(cursor.getString(22));
-                    arr_weight.add(cursor.getString(23));
-                    arr_origin.add(cursor.getString(24));
-                    arr_schoolname.add(cursor.getString(25));
-                    arr_lga.add(cursor.getString(26));
-                    arr_createdby.add(cursor.getString(27));
-                    arr_tesis_number.add(cursor.getString(28));
-                } while (cursor.moveToNext());
-            }
+            do {
+                arr_id.add(cursor.getInt(0));
+                arr_firstname.add(cursor.getString(1));
+                arr_surname.add(cursor.getString(2));
+                arr_othername.add(cursor.getString(3));
+                arr_dob.add(cursor.getString(4));
+                arr_guardianname.add(cursor.getString(5));
+                arr_guardianphone.add(cursor.getString(6));
+                arr_guardianaddress.add(cursor.getString(7));
+                arr_guardianrelationship.add(cursor.getString(8));
+                arr_question1.add(cursor.getString(9));
+                arr_question2.add(cursor.getString(10));
+                arr_question3.add(cursor.getString(11));
+                arr_question4.add(cursor.getString(12));
+                arr_question5.add(cursor.getString(13));
+                arr_religion.add(cursor.getString(14));
+                arr_address.add(cursor.getString(15));
+                arr_picture.add(cursor.getBlob(16));
+                arr_fingerprint.add(cursor.getBlob(17));
+                arr_signature.add(cursor.getBlob(18));
+                arr_gender.add(cursor.getString(19));
+                arr_class.add(cursor.getString(20));
+                arr_shoe_size.add(cursor.getString(21));
+                arr_height.add(cursor.getString(22));
+                arr_weight.add(cursor.getString(23));
+                arr_origin.add(cursor.getString(24));
+                arr_schoolname.add(cursor.getString(25));
+                arr_lga.add(cursor.getString(26));
+                arr_createdby.add(cursor.getString(27));
+                arr_tesis_number.add(cursor.getString(28));
+            } while (cursor.moveToNext());
         }
+    }
 
-        StudentAdapter studentAdapter = new StudentAdapter(getApplicationContext(), arr_id, arr_firstname, arr_surname, arr_othername,
-                arr_dob, arr_guardianname, arr_guardianphone, arr_guardianaddress, arr_guardianrelationship, arr_question1, arr_question2,
-                arr_question3, arr_question4, arr_question5, arr_religion, arr_address, arr_picture, arr_fingerprint, arr_signature,
-                arr_gender, arr_class, arr_shoe_size, arr_height, arr_weight, arr_origin, arr_schoolname, arr_lga, arr_createdby, arr_tesis_number, count_local, count_sync);
+        StudentAdapter studentAdapter = new StudentAdapter(SFingerActivity.this, arr_id, arr_firstname, arr_surname, arr_othername,
+            arr_dob, arr_guardianname, arr_guardianphone, arr_guardianaddress, arr_guardianrelationship, arr_question1, arr_question2,
+            arr_question3, arr_question4, arr_question5, arr_religion, arr_address, arr_picture, arr_fingerprint, arr_signature,
+            arr_gender, arr_class, arr_shoe_size, arr_height, arr_weight, arr_origin, arr_schoolname, arr_lga, arr_createdby, arr_tesis_number, count_local, count_sync);
         myList.setAdapter((ListAdapter) studentAdapter);
 
     }
@@ -1059,6 +1520,11 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
                 arr_staff_employment.clear();
                 arr_staff_promotion.clear();
                 arr_staff_category.clear();
+                arr_bank_name.clear();
+                arr_acc_number.clear();
+                arr_acc_name.clear();
+                arr_latitude.clear();
+                arr_longitude.clear();
 
                 do {
                     arr_staff_id.add(cursor.getInt(0));
@@ -1092,16 +1558,21 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
                     arr_staff_employment.add(cursor.getBlob(28));
                     arr_staff_promotion.add(cursor.getBlob(29));
                     arr_staff_category.add(cursor.getString(30));
+                    arr_bank_name.add(cursor.getString(31));
+                    arr_acc_number.add(cursor.getString(32));
+                    arr_acc_name.add(cursor.getString(33));
+                    arr_latitude.add(cursor.getString(34));
+                    arr_longitude.add(cursor.getString(35));
                 } while (cursor.moveToNext());
             }
         }
 
-        StaffAdapter staffAdapter = new StaffAdapter(getApplicationContext(), arr_staff_id, arr_staff_firstname, arr_staff_surname,
+        StaffAdapter staffAdapter = new StaffAdapter(SFingerActivity.this, arr_staff_id, arr_staff_firstname, arr_staff_surname,
                 arr_staff_othername, arr_staff_dob, arr_staff_email, arr_staff_phone, arr_staff_nin, arr_staff_qualification,
                 arr_staff_question1, arr_staff_question2, arr_staff_question3, arr_staff_question4, arr_staff_religion, arr_staff_address,
                 arr_staff_gender, arr_staff_nok, arr_staff_referee, arr_staff_subject, arr_staff_experience, arr_staff_school, arr_staff_schoollga,
                 arr_staff_createdby, arr_staff_psnnumber, arr_staff_picture, arr_staff_fingerprint, arr_staff_signature, arr_staff_idcard, arr_staff_employment,
-                arr_staff_promotion, arr_staff_category);
+                arr_staff_promotion, arr_staff_category, arr_bank_name, arr_acc_number, arr_acc_name, arr_latitude, arr_longitude);
         myList_staff.setAdapter(staffAdapter);
 
     }
@@ -1168,8 +1639,11 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
     private void reloadActivity() {
         getDashboardData();
         Intent intent = getIntent();
+        intent.putExtra("from", "refresh");
         finish();  // Finish the current instance of the activity
         startActivity(intent);  // Start a new instance of the activity
+
+        //set defaults to shared preference values
     }
 
     private void logout(){
@@ -1197,8 +1671,6 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
         myDialog.show();
     }
 
-
-//    Imported from previous code
 
     private void readLGAForTab1(){
         try{
@@ -1306,7 +1778,6 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
             System.out.println("error "+ e.toString());
         }
     }
-
     private void readPrimarySchoolFromExcel() {
         try{
             InputStream myInput;
@@ -1512,89 +1983,101 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
     }
 
     public void student_location(){
-        spinner_lga = findViewById(R.id.spinner_lga);
-        spinner_school_type = findViewById(R.id.spinner_schooltype);
-        spinner_school = findViewById(R.id.spinner_school);
-        spinner_class = findViewById(R.id.spinner_class);
+//        spinner_lga = findViewById(R.id.spinner_lga);
+//        spinner_school_type = findViewById(R.id.spinner_schooltype);
+//        spinner_school = findViewById(R.id.spinner_school);
 
 
-        lgaspinnerAdapter = new ArrayAdapter<>(this, R.layout.simple_spinner_item, R.id.tx, taraba_lga);
-        spinner_lga.setAdapter(lgaspinnerAdapter);
-        spinner_lga.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(AdapterView<?> adapterView, View view, int i, long l) {
-                selected_taraba_lga = spinner_lga.getSelectedItem().toString();
-                readSchoolPerSelectedTarabaLga(selected_taraba_lga, selected_taraba_schooltype);
-            }
 
-            @Override
-            public void onNothingSelected(AdapterView<?> adapterView) {
+//        lgaspinnerAdapter = new ArrayAdapter<>(this, R.layout.simple_spinner_item, R.id.tx, taraba_lga);
+//        spinner_lga.setAdapter(lgaspinnerAdapter);
+//        spinner_lga.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+//            @Override
+//            public void onItemSelected(AdapterView<?> adapterView, View view, int i, long l) {
+//                selected_taraba_lga = spinner_lga.getSelectedItem().toString();
+//                readSchoolPerSelectedTarabaLga(selected_taraba_lga, selected_taraba_schooltype);
+//            }
+//
+//            @Override
+//            public void onNothingSelected(AdapterView<?> adapterView) {
+//
+//            }
+//        });
+//
+//        String school_type[] = {"Select School Type","Primary School", "Secondary School"};
+//        schooltypespinnerAdapter = new ArrayAdapter<>(this, R.layout.simple_spinner_item, R.id.tx, school_type);
+//        spinner_school_type.setAdapter(schooltypespinnerAdapter);
+//        spinner_school_type.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+//            @Override
+//            public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
+//                // your code here
+//                if (position==1){
+//                    //school list should be primary school
+//                    populated_school.clear();
+//                    selected_taraba_schooltype = "Primary";
+//                    readSchoolPerSelectedTarabaLga(selected_taraba_lga, selected_taraba_schooltype);
+//                    checker("Primary");
+//                }else if (position==2){
+//                    //school list should be secondary school
+//                    populated_school.clear();
+//                    selected_taraba_schooltype = "Secondary";
+//                    readSchoolPerSelectedTarabaLga(selected_taraba_lga, selected_taraba_schooltype);
+//                    checker("Secondary");
+//                }else if (position==0){
+//                    //school list should be secondary school
+//                    populated_school.clear();
+//                    checker("");
+//                }
+//
+//
+//            }
+//
+//            @Override
+//            public void onNothingSelected(AdapterView<?> parentView) {
+//                // your code here
+//            }
+//
+//        });
 
-            }
-        });
 
-        String school_type[] = {"Select School Type","Primary School", "Secondary School"};
-        schooltypespinnerAdapter = new ArrayAdapter<>(this, R.layout.simple_spinner_item, R.id.tx, school_type);
-        spinner_school_type.setAdapter(schooltypespinnerAdapter);
-        spinner_school_type.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
-                // your code here
-                if (position==1){
-                    //school list should be primary school
-                    populated_school.clear();
-                    selected_taraba_schooltype = "Primary";
-                    readSchoolPerSelectedTarabaLga(selected_taraba_lga, selected_taraba_schooltype);
-                    checker("Primary");
-                }else if (position==2){
-                    //school list should be secondary school
-                    populated_school.clear();
-                    selected_taraba_schooltype = "Secondary";
-                    readSchoolPerSelectedTarabaLga(selected_taraba_lga, selected_taraba_schooltype);
-                    checker("Secondary");
-                }else if (position==0){
-                    //school list should be secondary school
-                    populated_school.clear();
-                    checker("");
-                }
+//        String classs[] = {"Select Class", "Primary 1", "Primary 2", "Primary 3", "Primary 4", "Primary 5", "Primary 6"};
+//        classspinnerAdapter = new ArrayAdapter<>(this, R.layout.simple_spinner_item, R.id.tx, classs);
+//        spinner_class.setAdapter(classspinnerAdapter);
 
+//        if (selected_taraba_schooltype.equals("Primary")){
+//            checker("Primary");
+//        }
+//        if (selected_taraba_schooltype.equals("Secondary")){
+//            checker("Secondary");
+//        }
 
-            }
-
-            @Override
-            public void onNothingSelected(AdapterView<?> parentView) {
-                // your code here
-            }
-
-        });
-
-        String classs[] = {"Select Class", "Primary 1", "Primary 2", "Primary 3", "Primary 4", "Primary 5", "Primary 6"};
-        classspinnerAdapter = new ArrayAdapter<>(this, R.layout.simple_spinner_item, R.id.tx, classs);
-        spinner_class.setAdapter(classspinnerAdapter);
+        checker(selected_taraba_schooltype);
     }
 
     private void checker(String passed) {
 
+        spinner_class = findViewById(R.id.spinner_class);
+
         if (passed.equals("Primary")){
-            schoolspinnerAdapter = new ArrayAdapter<>(this, R.layout.simple_spinner_item, R.id.tx, populated_school);
-            spinner_school.setAdapter(schoolspinnerAdapter);
+//            schoolspinnerAdapter = new ArrayAdapter<>(this, R.layout.simple_spinner_item, R.id.tx, populated_school);
+//            spinner_school.setAdapter(schoolspinnerAdapter);
 
             String classs[] = {"Select Class", "Primary 1", "Primary 2", "Primary 3", "Primary 4", "Primary 5", "Primary 6"};
             classspinnerAdapter = new ArrayAdapter<>(this, R.layout.simple_spinner_item, R.id.tx, classs);
             spinner_class.setAdapter(classspinnerAdapter);
 
         }else if (passed.equals("Secondary")){
-            schoolspinnerAdapter = new ArrayAdapter<>(this, R.layout.simple_spinner_item, R.id.tx, populated_school);
-            spinner_school.setAdapter(schoolspinnerAdapter);
+//            schoolspinnerAdapter = new ArrayAdapter<>(this, R.layout.simple_spinner_item, R.id.tx, populated_school);
+//            spinner_school.setAdapter(schoolspinnerAdapter);
 
             String classs[] = {"Select Class", "JSS 1", "JSS 2", "JSS 3", "SS 1", "SS 2", "SS 3"};
             classspinnerAdapter = new ArrayAdapter<>(this, R.layout.simple_spinner_item, R.id.tx, classs);
             spinner_class.setAdapter(classspinnerAdapter);
 
         }else if (passed.equals("")){
-            String school[] = {"Select School"};
-            schoolspinnerAdapter = new ArrayAdapter<>(this, R.layout.simple_spinner_item, R.id.tx, school);
-            spinner_school.setAdapter(schoolspinnerAdapter);
+//            String school[] = {"Select School"};
+//            schoolspinnerAdapter = new ArrayAdapter<>(this, R.layout.simple_spinner_item, R.id.tx, school);
+//            spinner_school.setAdapter(schoolspinnerAdapter);
 
             String classs[] = {"Select Class"};
             classspinnerAdapter = new ArrayAdapter<>(this, R.layout.simple_spinner_item, R.id.tx, classs);
@@ -1603,28 +2086,28 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
     }
 
     public void checkLocationInputValidity() {
-        if (spinner_lga.getSelectedItem().toString().equals("Select Local Government Area") || spinner_lga.getSelectedItem().toString().equals("")){
-            lga = "";
-        }else{
-            lga = spinner_lga.getSelectedItem().toString();
-        }
-        if (spinner_school_type.getSelectedItem().toString().equals("Select School Type") || spinner_school_type.getSelectedItem().toString().equals("")){
-            schoolType = "";
-        }else{
-            schoolType = spinner_school_type.getSelectedItem().toString();
-        }
-        if (spinner_school.getSelectedItem().toString().equals("Select School") || spinner_school.getSelectedItem().toString().equals("")){
-            school = "";
-        }else{
-            school = spinner_school.getSelectedItem().toString();
-        }
+//        if (spinner_lga.getSelectedItem().toString().equals("Select Local Government Area") || spinner_lga.getSelectedItem().toString().equals("")){
+//            lga = "";
+//        }else{
+//            lga = spinner_lga.getSelectedItem().toString();
+//        }
+//        if (spinner_school_type.getSelectedItem().toString().equals("Select School Type") || spinner_school_type.getSelectedItem().toString().equals("")){
+//            schoolType = "";
+//        }else{
+//            schoolType = spinner_school_type.getSelectedItem().toString();
+//        }
+//        if (spinner_school.getSelectedItem().toString().equals("Select School") || spinner_school.getSelectedItem().toString().equals("")){
+//            school = "";
+//        }else{
+//            school = spinner_school.getSelectedItem().toString();
+//        }
         if (spinner_class.getSelectedItem().toString().equals("Select Class") || spinner_class.getSelectedItem().toString().equals("")){
             schoolClass = "";
         }else{
             schoolClass = spinner_class.getSelectedItem().toString();
         }
 
-        if (!lga.equals("") && !schoolType.equals("") && !schoolClass.equals("") && !school.equals("")){
+        if (!schoolClass.equals("")){
 //            Toast.makeText(this, lga+" "+schoolType+" "+schoolClass+" "+school, Toast.LENGTH_SHORT).show();
             container1.setVisibility(View.GONE);
             bar2.setBackgroundResource(R.drawable.quote1);
@@ -2175,7 +2658,7 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
                 if (ContextCompat.checkSelfPermission(SFingerActivity.this, Manifest.permission.CAMERA)
                         != PackageManager.PERMISSION_GRANTED) {
                     // here, Permission is not granted
-                    ActivityCompat.requestPermissions(SFingerActivity.this, new String[] {android.Manifest.permission.CAMERA}, 50);
+                    ActivityCompat.requestPermissions(SFingerActivity.this, new String[] {Manifest.permission.CAMERA}, 50);
                 }else{
                     // her, permission is granted
                     Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
@@ -2247,8 +2730,10 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
     }
 
     private void enrollmentVerification() {
+        preferences2 = getSharedPreferences("TempStorage", Context.MODE_PRIVATE);
+        String pref_lga = preferences2.getString("lga", "");
 
-        String firstFourLga = selected_taraba_lga.substring(0, Math.min(selected_taraba_lga.length(), 3)).toUpperCase(Locale.ROOT);
+        String firstFourLga = pref_lga.substring(0, Math.min(pref_lga.length(), 3)).toUpperCase(Locale.ROOT);
 //        String firstLetterSchoolType = selected_taraba_schooltype.substring(0, Math.min(selected_taraba_schooltype.length(), 1));
         Random random = new Random();
         // Generate three random numbers
@@ -2273,218 +2758,6 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
         tesisNumber.setText(tesis);
 
     }
-
-//    Import ends here
-
-
-
-
-
-    @Override
-    protected void initDatas() {
-        compositeDisposable = new CompositeDisposable();
-    }
-
-    @Override
-    public int getContentViewId() {
-        return R.layout.activity_s_finger;
-    }
-
-    public void openDevice(boolean isChecked) {
-        if (isChecked) {
-            startLoadding("Opening Device...");
-            mApi.openFingerDevice(this);
-        } else {
-            mApi.release();
-            captureBtn.setEnabled(false);
-            verifyBtn.setEnabled(false);
-            stopLoadding();
-        }
-    }
-
-    public void startLoadding(String content) {
-        if (mDialog == null) {
-            mDialog = new ProgressDialog(this);
-            mDialog.setCancelable(false);
-        }
-        mDialog.setMessage(content);
-        if (!mDialog.isShowing()) {
-            mDialog.show();
-        }
-    }
-
-    public void stopLoadding() {
-        if (mDialog != null && !isFinishing()) {
-            mDialog.dismiss();
-        }
-    }
-
-    @Override
-    public void connect(int result) {
-        captureBtn.setEnabled(true);
-        Log.e(TAG, "FingerInit状态" + result);
-        stopLoadding();
-    }
-
-    @Override
-    public void disconnect() {
-        stopLoadding();
-        Log.e(TAG, "disconnect");
-        showToast("disconnect");
-    }
-
-    private void showToast(String msg) {
-        Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
-    }
-
-    @Override
-    public void captureSuccess(int NFIQ, byte[] img_Buffer, int[] size, byte[] templateBuffer) {
-        Bitmap bitmap = BitmapFactory.decodeByteArray(
-                img_Buffer, 0, 256 * 360 + 1024 + 54);
-        prev.setImageBitmap(bitmap);
-        prev_staff.setImageBitmap(bitmap);
-        finalFingerprint.setImageBitmap(bitmap);
-        tip.setText(getString(R.string.capture_finish));
-        tip_staff.setText(getString(R.string.capture_finish));
-        Log.e(TAG, "NFIQ:" + NFIQ);
-        quality.setText(String.valueOf((5 - NFIQ) * 20));
-        quality_staff.setText(String.valueOf((5 - NFIQ) * 20));
-        if (verifyMode) {
-            startVerify(img_Buffer);
-        } else {
-            captureIv.setImageBitmap(bitmap);
-            captureIv_staff.setImageBitmap(bitmap);
-            register(img_Buffer);
-        }
-
-        //converting bitmap to bytearray
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, baos);
-        b_finger = baos.toByteArray();
-    }
-
-    @Override
-    public void captureFail(int result, String failMsg) {
-        tip.setText(failMsg);
-        tip_staff.setText(failMsg);
-        captureBtn.setEnabled(true);
-    }
-
-    @Override
-    public void captureOnPress(int NFIQ, byte[] img_Buffer, int[] size) {
-        Bitmap bitmap = BitmapFactory.decodeByteArray(
-                img_Buffer, 0, 256 * 360 + 1024 + 54);
-        prev.setImageBitmap(bitmap);
-        prev_staff.setImageBitmap(bitmap);
-        Log.e(TAG, "NFIQ:" + NFIQ);
-        quality.setText(String.valueOf((5 - NFIQ) * 20));
-        quality_staff.setText(String.valueOf((5 - NFIQ) * 20));
-    }
-
-    @OnClick({R.id.capture_btn, R.id.verify_btn, R.id.capture_btn_staff})
-    public void onClick(View v) {
-        switch (v.getId()) {
-            case R.id.capture_btn:
-                Log.e(TAG, "capture_btn");
-                tip.setText("capture...");
-                verifyMode = false;
-                verify_tv.setText("");
-                prev.setImageBitmap(null);
-                captureIv.setImageBitmap(null);
-                captureBtn.setEnabled(false);
-                verifyBtn.setEnabled(false);
-//                mDevice.startCapture(this);
-                mApi.startCapture(40, this);
-                break;
-            case R.id.verify_btn:
-                verify_tv.setText("");
-                captureBtn.setEnabled(false);
-                verifyBtn.setEnabled(false);
-                verifyMode = true;
-                tip.setText("verify...");
-                mApi.startCapture(40, this);
-                break;
-            case R.id.capture_btn_staff:
-                verifyMode = false;
-                verify_tv.setText("");
-                prev_staff.setImageBitmap(null);
-                captureIv_staff.setImageBitmap(null);
-//                captureBtn.setEnabled(false);
-//                verifyBtn.setEnabled(false);
-//                mDevice.startCapture(this);
-                mApi.startCapture(40, this);
-                break;
-
-        }
-    }
-
-    private void register(byte[] bmpdata) {
-        bmpToXyt(srcfile, bmpdata);
-    }
-
-    private void startVerify(byte[] bmpdata) {
-        bmpToXyt(dstfile, bmpdata);
-    }
-
-    private void bmpToXyt(String filepath, byte[] bmpData) {
-        Disposable disposable = Observable.create((ObservableOnSubscribe<Message>) emitter -> {
-                    if (bmpData != null) {
-                        File file = new File(AppConfig.DATA_PATH);
-                        if (!file.exists()) {
-                            file.mkdirs();
-                        }
-                        FileUtils.writeByteArrayToFile(new File(filepath), bmpData);
-                        String pgmname = filepath.replace(".bmp", ".pgm");
-                        String xytname = filepath.replace(".bmp", ".xyt");
-                        CallDecoder.Bmp2PgmNoTripDistort(filepath, pgmname);
-                        CallFprint.pgmChangeToXyt(pgmname, xytname);
-                        Message msg = Message.obtain();
-                        msg.what = 0;
-                        if (verifyMode) {
-                            msg.what = 1;
-                            long start = System.currentTimeMillis();
-                            int nRet = CallFprint.fprintCompare(dstfile.replace(".bmp", ".xyt"), srcfile.replace(".bmp", ".xyt"));
-                            Log.i(TAG, "fprintCompare nRet= " + nRet);
-                            msg.arg1 = nRet;
-                            long stop = System.currentTimeMillis();
-                            Log.i(TAG, "use time:" + (stop - start) + "ms");
-                        }
-                        emitter.onNext(msg);
-                        emitter.onComplete();
-                    }
-                }).subscribeOn(Schedulers.io())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(msg -> {
-                    if (msg.what == 1) {
-                        Log.e(TAG, "比对完成");
-                        captureBtn.setEnabled(true);
-                        verifyBtn.setEnabled(true);
-                        int score = msg.arg1;
-                        tip.setText("score:" + score);
-                        if (score > threadHold) {
-                            verify_tv.setText(getResources().getString(R.string.verify_success));
-                            verify_tv.setTextColor(getResources().getColor(R.color.green));
-                        } else {
-                            verify_tv.setText(getResources().getString(R.string.verify_faild));
-                            verify_tv.setTextColor(getResources().getColor(R.color.red));
-                        }
-                    } else {
-                        Log.e(TAG, "register complete!");
-                        verifyBtn.setEnabled(true);
-                        tip.setText("register complete!");
-                    }
-                });
-        compositeDisposable.add(disposable);
-    }
-
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        //指纹下电
-        IoControl.getInstance().setIoStatus(IoControl.USBFP_PATH, IoControl.IOSTATUS.DISABLE);
-        openDevice(false);
-    }
-
 
     private void networkCheck() {
         //connectivity manager
@@ -2536,13 +2809,18 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
     }
 
     private void storeInSqliteDB() {
+        preferences2 = getSharedPreferences("TempStorage", Context.MODE_PRIVATE);
+        String pref_lga = preferences2.getString("lga", "");
+        String pref_schooltype = preferences2.getString("schooltype", "");
+        String pref_school = preferences2.getString("school", "");
+
         //create DB instance
         myDB = new MyDatabaseHelper(SFingerActivity.this);
         //add data to the table
         myDB.addToTable(str_firstname, str_surname, str_othername, str_dob, str_parentname, str_parentphone, str_parentaddress,
                 str_parentrelationship, str_security1, str_security2, str_security3, str_security4, "", str_religion,
                 str_address, b, b_finger, b_signature, str_gender, schoolClass, str_shoe, str_height, str_weight,
-                str_soo, school, lga, uid, tesis);
+                str_soo, pref_school, pref_lga, uid, tesis);
 
         count_local.setText(String.valueOf(myDB.getRecordCount()));
     }
@@ -2558,97 +2836,98 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
         staffDashboard.setVisibility(View.GONE);
         staffContainer1.setVisibility(View.VISIBLE);
 
-        spinner_staff_lga.setAdapter(lgaspinnerAdapter);
-        spinner_staff_lga.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(AdapterView<?> adapterView, View view, int i, long l) {
-                selected_staff_lga = spinner_staff_lga.getSelectedItem().toString();
-                readSchoolPerSelectedTarabaLga(selected_staff_lga, selected_staff_schooltype);
-            }
-
-            @Override
-            public void onNothingSelected(AdapterView<?> adapterView) {
-
-            }
-        });
-
-        spinner_staff_schooltype.setAdapter(schooltypespinnerAdapter);
-        spinner_staff_schooltype.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
-                // your code here
-                if (position==1){
-                    //school list should be primary school
-                    populated_school.clear();
-                    selected_staff_schooltype = "Primary";
-                    readSchoolPerSelectedTarabaLga(selected_staff_lga, selected_staff_schooltype);
-                    checker2("Primary");
-                }else if (position==2){
-                    //school list should be secondary school
-                    populated_school.clear();
-                    selected_staff_schooltype = "Secondary";
-                    readSchoolPerSelectedTarabaLga(selected_staff_lga, selected_staff_schooltype);
-                    checker2("Secondary");
-                }else if (position==0){
-                    //school list should be secondary school
-                    populated_school.clear();
-                    checker2("");
-                }
-
-
-            }
-
-            @Override
-            public void onNothingSelected(AdapterView<?> parentView) {
-                // your code here
-            }
-
-        });
+//        spinner_staff_lga.setAdapter(lgaspinnerAdapter);
+//        spinner_staff_lga.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+//            @Override
+//            public void onItemSelected(AdapterView<?> adapterView, View view, int i, long l) {
+//                selected_staff_lga = spinner_staff_lga.getSelectedItem().toString();
+//                readSchoolPerSelectedTarabaLga(selected_staff_lga, selected_staff_schooltype);
+//            }
+//
+//            @Override
+//            public void onNothingSelected(AdapterView<?> adapterView) {
+//
+//            }
+//        });
+//
+//        spinner_staff_schooltype.setAdapter(schooltypespinnerAdapter);
+//        spinner_staff_schooltype.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+//            @Override
+//            public void onItemSelected(AdapterView<?> parentView, View selectedItemView, int position, long id) {
+//                // your code here
+//                if (position==1){
+//                    //school list should be primary school
+//                    populated_school.clear();
+//                    selected_staff_schooltype = "Primary";
+//                    readSchoolPerSelectedTarabaLga(selected_staff_lga, selected_staff_schooltype);
+//                    checker2("Primary");
+//                }else if (position==2){
+//                    //school list should be secondary school
+//                    populated_school.clear();
+//                    selected_staff_schooltype = "Secondary";
+//                    readSchoolPerSelectedTarabaLga(selected_staff_lga, selected_staff_schooltype);
+//                    checker2("Secondary");
+//                }else if (position==0){
+//                    //school list should be secondary school
+//                    populated_school.clear();
+//                    checker2("");
+//                }
+//
+//
+//            }
+//
+//            @Override
+//            public void onNothingSelected(AdapterView<?> parentView) {
+//                // your code here
+//            }
+//
+//        });
     }
 
-    private void checker2(String passed) {
-
-        if (passed.equals("Primary")){
-            schoolspinnerAdapter = new ArrayAdapter<>(this, R.layout.simple_spinner_item, R.id.tx, populated_school);
-            spinner_staff_school.setAdapter(schoolspinnerAdapter);
-
-        }else if (passed.equals("Secondary")){
-            schoolspinnerAdapter = new ArrayAdapter<>(this, R.layout.simple_spinner_item, R.id.tx, populated_school);
-            spinner_staff_school.setAdapter(schoolspinnerAdapter);
-
-        }else if (passed.equals("")){
-            String school[] = {"Select School"};
-            schoolspinnerAdapter = new ArrayAdapter<>(this, R.layout.simple_spinner_item, R.id.tx, school);
-            spinner_staff_school.setAdapter(schoolspinnerAdapter);
-        }
-    }
+//    private void checker2(String passed) {
+//
+//        if (passed.equals("Primary")){
+//            schoolspinnerAdapter = new ArrayAdapter<>(this, R.layout.simple_spinner_item, R.id.tx, populated_school);
+//            spinner_staff_school.setAdapter(schoolspinnerAdapter);
+//
+//        }else if (passed.equals("Secondary")){
+//            schoolspinnerAdapter = new ArrayAdapter<>(this, R.layout.simple_spinner_item, R.id.tx, populated_school);
+//            spinner_staff_school.setAdapter(schoolspinnerAdapter);
+//
+//        }else if (passed.equals("")){
+//            String school[] = {"Select School"};
+//            schoolspinnerAdapter = new ArrayAdapter<>(this, R.layout.simple_spinner_item, R.id.tx, school);
+//            spinner_staff_school.setAdapter(schoolspinnerAdapter);
+//        }
+//    }
 
     public void checkStaffLocationInputValidity() {
-        if (spinner_staff_lga.getSelectedItem().toString().equals("Select Local Government Area") || spinner_staff_lga.getSelectedItem().toString().equals("")){
-            staff_lga = "";
-        }else{
-            staff_lga = spinner_lga.getSelectedItem().toString();
-        }
-        if (spinner_staff_schooltype.getSelectedItem().toString().equals("Select School Type") || spinner_staff_schooltype.getSelectedItem().toString().equals("")){
-            staff_schoolType = "";
-        }else{
-            staff_schoolType = spinner_staff_schooltype.getSelectedItem().toString();
-        }
-        if (spinner_staff_school.getSelectedItem().toString().equals("Select School") || spinner_staff_school.getSelectedItem().toString().equals("")){
-            staff_school = "";
-        }else{
-            staff_school = spinner_staff_school.getSelectedItem().toString();
-        }
+        staffBioData();
+//        if (spinner_staff_lga.getSelectedItem().toString().equals("Select Local Government Area") || spinner_staff_lga.getSelectedItem().toString().equals("")){
+//            staff_lga = "";
+//        }else{
+//            staff_lga = spinner_lga.getSelectedItem().toString();
+//        }
+//        if (spinner_staff_schooltype.getSelectedItem().toString().equals("Select School Type") || spinner_staff_schooltype.getSelectedItem().toString().equals("")){
+//            staff_schoolType = "";
+//        }else{
+//            staff_schoolType = spinner_staff_schooltype.getSelectedItem().toString();
+//        }
+//        if (spinner_staff_school.getSelectedItem().toString().equals("Select School") || spinner_staff_school.getSelectedItem().toString().equals("")){
+//            staff_school = "";
+//        }else{
+//            staff_school = spinner_staff_school.getSelectedItem().toString();
+//        }
 
-        if (!staff_lga.equals("") && !staff_schoolType.equals("") && !staff_school.equals("")){
-            staffContainer1.setVisibility(View.GONE);
-            staff_bar2.setBackgroundResource(R.drawable.quote1);
-            staffContainer2.setVisibility(View.VISIBLE);
-
-            staffBioData();
-        }else{
-            Toast.makeText(this, "Wrong Selection", Toast.LENGTH_SHORT).show();
-        }
+//        if (!staff_lga.equals("") && !staff_schoolType.equals("") && !staff_school.equals("")){
+//            staffContainer1.setVisibility(View.GONE);
+//            staff_bar2.setBackgroundResource(R.drawable.quote1);
+//            staffContainer2.setVisibility(View.VISIBLE);
+//
+//
+//        }else{
+//            Toast.makeText(this, "Wrong Selection", Toast.LENGTH_SHORT).show();
+//        }
 
 
     }
@@ -2886,6 +3165,100 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
 
     }
 
+    private void staffAccountInput() {
+        bank_list.add("Access Bank Plc");
+        bank_list.add("Citibank Nigeria Limited");
+        bank_list.add("Ecobank Nigeria Plc");
+        bank_list.add("Fidelity Bank Plc");
+        bank_list.add("First Bank Nigeria Limited");
+        bank_list.add("First City Monument Bank Plc");
+        bank_list.add("Globus Bank Limited");
+        bank_list.add("Guaranty Trust Bank Plc");
+        bank_list.add("Heritage Banking Company Ltd.");
+        bank_list.add("Keystone Bank Limited");
+        bank_list.add("Parallex Bank Ltd");
+        bank_list.add("Polaris Bank Plc");
+        bank_list.add("Premium Trust Bank");
+        bank_list.add("Providus Bank");
+        bank_list.add("Stanbic IBTC Bank Plc");
+        bank_list.add("Standard Chartered Bank Nigeria Ltd.");
+        bank_list.add("Sterling Bank Plc");
+        bank_list.add("SunTrust Bank Nigeria Limited");
+        bank_list.add("Titan Trust Bank Ltd");
+        bank_list.add("Union Bank of Nigeria Plc");
+        bank_list.add("United Bank For Africa Plc");
+        bank_list.add("Unity  Bank Plc");
+        bank_list.add("Wema Bank Plc");
+        bank_list.add("Zenith Bank Plc");
+
+
+        accNumber = findViewById(R.id.edt_staff_accountnumber);
+        accName = findViewById(R.id.edt_staff_accountname);
+        spinner_bank_list = findViewById(R.id.spinner_bank_list);
+
+        bankAdapter = new ArrayAdapter<>(SFingerActivity.this, R.layout.simple_spinner_item, R.id.tx, bank_list);
+        spinner_bank_list.setAdapter(bankAdapter);
+        spinner_bank_list.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> adapterView, View view, int i, long l) {
+                str_staff_bankname=spinner_bank_list.getSelectedItem().toString();
+                staffBankName = true;
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> adapterView) {
+                staffBankName = false;
+            }
+        });
+
+        accNumber.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence charSequence, int i, int i1, int i2) {
+
+            }
+
+            @Override
+            public void onTextChanged(CharSequence charSequence, int i, int i1, int i2) {
+                if (accNumber.getText().toString().length()>=10){
+//                    img_psnNum.setColorFilter(Color.parseColor("#006837"));
+                    staffAccountNumber = true;
+                }else{
+//                    img_psnNum.setColorFilter(Color.parseColor("#ed1b24"));
+                    staffAccountNumber = false;
+                }
+            }
+
+            @Override
+            public void afterTextChanged(Editable editable) {
+                str_staff_accnum=accNumber.getText().toString();
+            }
+        });
+        accName.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence charSequence, int i, int i1, int i2) {
+
+            }
+
+            @Override
+            public void onTextChanged(CharSequence charSequence, int i, int i1, int i2) {
+                if (accName.getText().toString().length()>=7){
+//                    img_psnNum.setColorFilter(Color.parseColor("#006837"));
+                    staffAccountName = true;
+                }else{
+//                    img_psnNum.setColorFilter(Color.parseColor("#ed1b24"));
+                    staffAccountName = false;
+                }
+            }
+
+            @Override
+            public void afterTextChanged(Editable editable) {
+                str_staff_accname=accName.getText().toString();
+            }
+        });
+
+
+    }
+
     private void eduQualification() {
         spinner_postgraduate = findViewById(R.id.spinner_postgraduate);
         img_postgraduate = findViewById(R.id.img_postgraduate);
@@ -2925,7 +3298,7 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
         });
 
         ArrayAdapter<String> tertiaryAdapter;
-        String tert[] = {"Select Tertiary Qualification", "BSc", "BTech", "BA", "BEdu.", "BPhil", "BMed"};
+        String tert[] = {"Select Tertiary Qualification", "BSc", "BSc(Hons)", "B.Agric", "BBA", "BArch", "B.Tech", "BA", "BEd", "B.NSC", "B.V.Sc", "BEng", "BPhil", "BPharm", "BMLS", "BFA", "BFA", "BMed", "LLB", "MBBS", "National Diploma (ND)", "HND", "NCE"};
         tertiaryAdapter = new ArrayAdapter<>(this, R.layout.simple_spinner_item, R.id.tx, tert);
         spinner_tertiary.setAdapter(tertiaryAdapter);
         spinner_tertiary.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
@@ -3299,6 +3672,11 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
     }
 
     private void questionBank() {
+        preferences2 = getSharedPreferences("TempStorage", Context.MODE_PRIVATE);
+        String pref_lga = preferences2.getString("lga", "");
+        String pref_schooltype = preferences2.getString("schooltype", "");
+        String pref_school = preferences2.getString("school", "");
+
         counter = findViewById(R.id.counter);
         nextQuestion = findViewById(R.id.nextQuestion);
         question = findViewById(R.id.question);
@@ -3604,14 +3982,15 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
         });
 
         Random myRand = new Random();
-        if (selected_staff_schooltype.equals("Primary")){
+
+        if (pref_schooltype.equals("Primary")){
             randomNumber2 = myRand.nextInt(arr_option1_primary.size());
             question.setText(arr_question_primary.get(randomNumber2));
             txt_option1.setText(arr_option1_primary.get(randomNumber2));
             txt_option2.setText(arr_option2_primary.get(randomNumber2));
             txt_option3.setText(arr_option3_primary.get(randomNumber2));
             txt_option4.setText(arr_option4_primary.get(randomNumber2));
-        }else if (selected_staff_schooltype.equals("Secondary")){
+        }else if (pref_schooltype.equals("Secondary")){
             randomNumber2 = myRand.nextInt(arr_option1_secondary.size());
             question.setText(arr_question_secondary.get(randomNumber2));
             txt_option1.setText(arr_option1_secondary.get(randomNumber2));
@@ -3619,6 +3998,23 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
             txt_option3.setText(arr_option3_secondary.get(randomNumber2));
             txt_option4.setText(arr_option4_secondary.get(randomNumber2));
         }
+
+
+//        if (selected_staff_schooltype.equals("Primary")){
+//            randomNumber2 = myRand.nextInt(arr_option1_primary.size());
+//            question.setText(arr_question_primary.get(randomNumber2));
+//            txt_option1.setText(arr_option1_primary.get(randomNumber2));
+//            txt_option2.setText(arr_option2_primary.get(randomNumber2));
+//            txt_option3.setText(arr_option3_primary.get(randomNumber2));
+//            txt_option4.setText(arr_option4_primary.get(randomNumber2));
+//        }else if (selected_staff_schooltype.equals("Secondary")){
+//            randomNumber2 = myRand.nextInt(arr_option1_secondary.size());
+//            question.setText(arr_question_secondary.get(randomNumber2));
+//            txt_option1.setText(arr_option1_secondary.get(randomNumber2));
+//            txt_option2.setText(arr_option2_secondary.get(randomNumber2));
+//            txt_option3.setText(arr_option3_secondary.get(randomNumber2));
+//            txt_option4.setText(arr_option4_secondary.get(randomNumber2));
+//        }
         questionnumber.setText("1");
         arr_questions.add(question.getText().toString());
         arr_responses.add(answer);
@@ -3650,14 +4046,14 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
                         radio_option3.setChecked(false);
                         radio_option4.setChecked(false);
 
-                        if (selected_staff_schooltype.equals("Primary")){
+                        if (pref_schooltype.equals("Primary")){
                             randomNumber1 = myRand.nextInt(arr_option1_primary.size());
                             question.setText(arr_question_primary.get(randomNumber1));
                             txt_option1.setText(arr_option1_primary.get(randomNumber1));
                             txt_option2.setText(arr_option2_primary.get(randomNumber1));
                             txt_option3.setText(arr_option3_primary.get(randomNumber1));
                             txt_option4.setText(arr_option4_primary.get(randomNumber1));
-                        }else if (selected_staff_schooltype.equals("Secondary")){
+                        }else if (pref_schooltype.equals("Secondary")){
                             randomNumber1 = myRand.nextInt(arr_option1_secondary.size());
                             question.setText(arr_question_secondary.get(randomNumber1));
                             txt_option1.setText(arr_option1_secondary.get(randomNumber1));
@@ -3671,6 +4067,7 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
                         counter.setText(String.format("Question %d of 4", index + 1));
 
                         index++;
+                        answer = "";
                     }
                 }
 
@@ -3693,7 +4090,7 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
                 if (ContextCompat.checkSelfPermission(SFingerActivity.this, Manifest.permission.CAMERA)
                         != PackageManager.PERMISSION_GRANTED) {
                     // here, Permission is not granted
-                    ActivityCompat.requestPermissions(SFingerActivity.this, new String[] {android.Manifest.permission.CAMERA}, 50);
+                    ActivityCompat.requestPermissions(SFingerActivity.this, new String[] {Manifest.permission.CAMERA}, 50);
                 }else{
                     // here, permission is granted
                     Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
@@ -3707,7 +4104,7 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
                 if (ContextCompat.checkSelfPermission(SFingerActivity.this, Manifest.permission.CAMERA)
                         != PackageManager.PERMISSION_GRANTED) {
                     // here, Permission is not granted
-                    ActivityCompat.requestPermissions(SFingerActivity.this, new String[] {android.Manifest.permission.CAMERA}, 50);
+                    ActivityCompat.requestPermissions(SFingerActivity.this, new String[] {Manifest.permission.CAMERA}, 50);
                 }else{
                     // here, permission is granted
                     Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
@@ -3721,7 +4118,7 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
                 if (ContextCompat.checkSelfPermission(SFingerActivity.this, Manifest.permission.CAMERA)
                         != PackageManager.PERMISSION_GRANTED) {
                     // here, Permission is not granted
-                    ActivityCompat.requestPermissions(SFingerActivity.this, new String[] {android.Manifest.permission.CAMERA}, 50);
+                    ActivityCompat.requestPermissions(SFingerActivity.this, new String[] {Manifest.permission.CAMERA}, 50);
                 }else{
                     // here, permission is granted
                     Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
@@ -3741,7 +4138,7 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
                 if (ContextCompat.checkSelfPermission(SFingerActivity.this, Manifest.permission.CAMERA)
                         != PackageManager.PERMISSION_GRANTED) {
                     // here, Permission is not granted
-                    ActivityCompat.requestPermissions(SFingerActivity.this, new String[] {android.Manifest.permission.CAMERA}, 50);
+                    ActivityCompat.requestPermissions(SFingerActivity.this, new String[] {Manifest.permission.CAMERA}, 50);
                 }else{
                     // here, permission is granted
                     Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
@@ -3797,6 +4194,11 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
     }
 
     private void saveStaffToSQLite() {
+        preferences2 = getSharedPreferences("TempStorage", Context.MODE_PRIVATE);
+        String pref_lga = preferences2.getString("lga", "");
+        String pref_schooltype = preferences2.getString("schooltype", "");
+        String pref_school = preferences2.getString("school", "");
+
         myDB_Staff = new MyDatabaseHelperStaff(SFingerActivity.this);
         myDB_Staff.addToTable(str_staff_firstname, str_staff_surname, str_staff_surname, str_staff_dob, str_staff_email, str_staff_phone, str_staff_nin, edu_quality,
                 arr_questions.get(0)+": "+arr_responses.get(1),
@@ -3805,13 +4207,33 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
                 arr_questions.get(3)+": "+arr_responses.get(4),
                 str_staff_gender, str_staff_phone, str_staff_gender, str_nok_fullname,
                 str_ref1_fullname+", "+str_ref2_fullname,
-                str_staff_subject, str_staff_experience, staff_school, staff_lga, uid, str_staff_psnNum,
-                b_staffPortrait, b_finger, b_staffPortrait, b_idCard, b_employment, b_promotion, selected_staff_type);
+                str_staff_subject, str_staff_experience, pref_school, pref_lga, uid, str_staff_psnNum,
+                b_staffPortrait, b_finger, b_staffPortrait, b_idCard, b_employment, b_promotion, selected_staff_type,
+                str_staff_bankname, str_staff_accnum, str_staff_accname, userLatitude, userLongitude);
     }
 
 
     @Override
     public void onBackPressed() {
         //do nothing
+    }
+
+    @Override
+    public void onLocationChanged(@NonNull Location location) {
+        userLatitude = String.valueOf(location.getLatitude());
+        userLongitude = String.valueOf(location.getLongitude());
+
+//        System.out.println("Latitude: " + location.getLatitude()+"\nLongitude: " + location.getLongitude());
+//        Toast.makeText(this, ""+location.getLatitude()+","+location.getLongitude(), Toast.LENGTH_SHORT).show();
+//        try {
+//            Geocoder geocoder = new Geocoder(SFingerActivity.this, Locale.getDefault());
+//            List<Address> addresses = geocoder.getFromLocation(location.getLatitude(),location.getLongitude(),1);
+//            String address = addresses.get(0).getAddressLine(0);
+//
+//            System.out.println("Address: " + address);
+//
+//        }catch (Exception e){
+//            e.printStackTrace();
+//        }
     }
 }

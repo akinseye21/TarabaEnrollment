@@ -1,17 +1,12 @@
 package com.emp.singlefpdemo.adapters;
 
 import android.content.Context;
-import android.content.Intent;
-import android.graphics.Bitmap;
-import android.os.Bundle;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
 import android.widget.Button;
 import android.widget.ImageView;
-import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -25,19 +20,13 @@ import com.android.volley.Response;
 import com.android.volley.VolleyError;
 import com.android.volley.toolbox.Volley;
 import com.bumptech.glide.Glide;
-import com.emp.singlefpdemo.BaseActivity;
 import com.emp.singlefpdemo.MyDatabaseHelper;
 import com.emp.singlefpdemo.R;
-import com.emp.singlefpdemo.SFingerActivity;
 import com.emp.singlefpdemo.VolleyMultipartRequest;
-import com.szsicod.print.utils.BitmapUtils;
 
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.sql.Blob;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
