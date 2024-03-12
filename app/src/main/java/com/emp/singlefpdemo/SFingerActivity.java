@@ -1,5 +1,7 @@
 package com.emp.singlefpdemo;
 
+import static androidx.constraintlayout.motion.widget.Debug.getLocation;
+
 import android.Manifest;
 import android.app.DatePickerDialog;
 import android.app.Dialog;
@@ -375,6 +377,7 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
     private String dstfile = AppConfig.DATA_PATH + File.separator + "2.bmp";
     private boolean verifyMode;
     private static final int threadHold = 22;
+
 
 
     @Override
@@ -1011,6 +1014,38 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
             defaultLGA2.setText(pref_lga);
             defaultSchool2.setText(pref_school);
 
+
+            if (ContextCompat.checkSelfPermission(SFingerActivity.this, Manifest.permission.ACCESS_FINE_LOCATION)
+                    != PackageManager.PERMISSION_GRANTED){
+                ActivityCompat.requestPermissions(SFingerActivity.this,new String[]{
+                        Manifest.permission.ACCESS_FINE_LOCATION
+                },100);
+            }else{
+//            LocationManager nManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+                locationManager = (LocationManager) getApplicationContext().getSystemService(LOCATION_SERVICE);
+                if (!locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+//                OnGPS();
+                } else {
+                    getLocation();
+
+                    Location locationGPS = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+                    if (locationGPS != null) {
+                        userLatitude = String.valueOf(locationGPS.getLatitude());
+                        userLongitude = String.valueOf(locationGPS.getLongitude());
+                    }
+                }
+
+
+            }
+
+            try {
+                locationManager = (LocationManager) getApplicationContext().getSystemService(LOCATION_SERVICE);
+                locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER,5000,5,SFingerActivity.this);
+            }catch (Exception e){
+                e.printStackTrace();
+            }
+
+
             checker(pref_schooltype);
         }
 
@@ -1026,6 +1061,22 @@ public class SFingerActivity extends BaseActivity implements FingerDeviceStatusL
             ActivityCompat.requestPermissions(SFingerActivity.this,new String[]{
                     Manifest.permission.ACCESS_FINE_LOCATION
             },100);
+        }else{
+//            LocationManager nManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+            locationManager = (LocationManager) getApplicationContext().getSystemService(LOCATION_SERVICE);
+            if (!locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+//                OnGPS();
+            } else {
+                getLocation();
+
+                Location locationGPS = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+                if (locationGPS != null) {
+                    userLatitude = String.valueOf(locationGPS.getLatitude());
+                    userLongitude = String.valueOf(locationGPS.getLongitude());
+                }
+            }
+
+
         }
 
         try {
